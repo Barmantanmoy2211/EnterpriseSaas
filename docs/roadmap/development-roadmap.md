@@ -33,11 +33,18 @@ Workflow, approval, notifications, audit, global search.
 - [x] Operations frontend pages and sidebar navigation
 - [x] Operations permissions and default report seed
 
-## Phase 4 — Enterprise Modules (Current)
+## Phase 4 — Enterprise Modules ✓
 
-Inventory, Resources, Finance, Procurement, Manufacturing, Logistics
+- [x] Inventory — items, stock movements (in/out/adjust)
+- [x] Resources — capacity resources and project allocations
+- [x] Finance — chart of accounts and journal entries
+- [x] Procurement — suppliers and purchase orders
+- [x] Manufacturing — BOMs and production orders
+- [x] Logistics — shipment tracking
+- [x] Enterprise frontend pages and sidebar navigation
+- [x] Enterprise permissions and seed data (chart of accounts, sample inventory)
 
-## Phase 5 — AI
+## Phase 5 — AI (Current)
 
 Enterprise search, Chat assistant, Predictive analytics
 

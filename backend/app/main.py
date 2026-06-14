@@ -20,6 +20,10 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     from app.communication.models import CommunicationMessage
     from app.document.models import Document
     from app.employee.models import Employee
+    from app.finance.models import Account, JournalEntry
+    from app.inventory.models import InventoryItem, InventoryMovement
+    from app.logistics.models import Shipment
+    from app.manufacturing.models import BillOfMaterials, ProductionOrder
     from app.notifications.models import Notification
     from app.organization.models import OrgNode, OrgNodeType
     from app.performance.models import (
@@ -32,9 +36,11 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         TrainingEnrollment,
     )
     from app.permissions.models import Permission, Role, RoleAssignment
+    from app.procurement.models import PurchaseOrder, Supplier
     from app.project.models import Project
     from app.recruitment.models import Candidate, JobApplication, JobPosting
     from app.reports.models import ReportRun, SavedReport
+    from app.resource.models import Resource, ResourceAllocation
     from app.search.models import SearchDocument
     from app.task.models import Task
     from app.tenant.models import Tenant, TenantSettings
@@ -80,6 +86,17 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             CommunicationMessage,
             SavedReport,
             ReportRun,
+            InventoryItem,
+            InventoryMovement,
+            Resource,
+            ResourceAllocation,
+            Account,
+            JournalEntry,
+            Supplier,
+            PurchaseOrder,
+            BillOfMaterials,
+            ProductionOrder,
+            Shipment,
         ],
     )
     app.state.mongo_client = client
@@ -90,7 +107,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 def create_app() -> FastAPI:
     app = FastAPI(
         title="EnterpriseOS API",
-        version="3.0.0",
+        version="4.0.0",
         description="Metadata-driven multi-tenant enterprise platform",
         lifespan=lifespan,
     )
@@ -107,13 +124,19 @@ def create_app() -> FastAPI:
     from app.communication.router import router as communication_router
     from app.document.router import router as document_router
     from app.employee.router import router as employee_router
+    from app.finance.router import router as finance_router
+    from app.inventory.router import router as inventory_router
+    from app.logistics.router import router as logistics_router
+    from app.manufacturing.router import router as manufacturing_router
     from app.notifications.router import router as notifications_router
     from app.organization.router import router as org_router
     from app.performance.router import router as hr_router
     from app.permissions.router import router as permissions_router
+    from app.procurement.router import router as procurement_router
     from app.project.router import router as project_router
     from app.recruitment.router import router as recruitment_router
     from app.reports.router import router as reports_router
+    from app.resource.router import router as resource_router
     from app.search.router import router as search_router
     from app.task.router import router as task_router
     from app.tenant.router import router as tenant_router
@@ -140,6 +163,12 @@ def create_app() -> FastAPI:
     app.include_router(communication_router, prefix="/api/v1")
     app.include_router(reports_router, prefix="/api/v1")
     app.include_router(analytics_router, prefix="/api/v1")
+    app.include_router(inventory_router, prefix="/api/v1")
+    app.include_router(resource_router, prefix="/api/v1")
+    app.include_router(finance_router, prefix="/api/v1")
+    app.include_router(procurement_router, prefix="/api/v1")
+    app.include_router(manufacturing_router, prefix="/api/v1")
+    app.include_router(logistics_router, prefix="/api/v1")
 
     @app.get("/health")
     async def health() -> dict[str, str]:

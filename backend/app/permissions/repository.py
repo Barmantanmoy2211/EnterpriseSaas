@@ -52,6 +52,18 @@ SYSTEM_PERMISSIONS = [
     ("report", "read", "View and run reports"),
     ("report", "manage", "Manage saved reports"),
     ("analytics", "read", "View analytics dashboards"),
+    ("inventory", "read", "View inventory items and movements"),
+    ("inventory", "manage", "Manage inventory items and stock movements"),
+    ("resource", "read", "View resources and allocations"),
+    ("resource", "manage", "Manage resources and allocations"),
+    ("finance", "read", "View accounts and journal entries"),
+    ("finance", "manage", "Manage accounts and post journal entries"),
+    ("procurement", "read", "View suppliers and purchase orders"),
+    ("procurement", "manage", "Manage suppliers and purchase orders"),
+    ("manufacturing", "read", "View BOMs and production orders"),
+    ("manufacturing", "manage", "Manage BOMs and production orders"),
+    ("logistics", "read", "View shipments"),
+    ("logistics", "manage", "Manage shipments"),
 ]
 
 
