@@ -46,9 +46,8 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     from app.tenant.models import Tenant, TenantSettings
     from app.workflow.models import WorkflowDefinition, WorkflowInstance
 
-    client = AsyncIOMotorClient(settings.mongodb_uri)
     await init_beanie(
-        database=client.get_default_database(),
+        connection_string=settings.mongodb_uri,
         document_models=[
             Tenant,
             TenantSettings,
@@ -99,9 +98,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             Shipment,
         ],
     )
-    app.state.mongo_client = client
     yield
-    client.close()
 
 
 def create_app() -> FastAPI:
