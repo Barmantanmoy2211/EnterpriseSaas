@@ -51,3 +51,4 @@ class UserResponse(BaseModel):
     roles: list[UserRoleSummary] = []
     permissions: list[str] = []
     is_tenant_admin: bool = False
+    scope_node_ids: list[str] = []

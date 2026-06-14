@@ -12,7 +12,7 @@ async def list_employees(
     status: str | None = Query(None),
     user=Depends(require_permission("employee", "read")),
 ):
-    return await EmployeeService.list_employees(str(user.tenant_id), status)
+    return await EmployeeService.list_employees(str(user.tenant_id), status, str(user.id))
 
 
 @router.get("/{employee_id}", response_model=EmployeeResponse)

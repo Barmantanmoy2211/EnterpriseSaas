@@ -14,6 +14,20 @@ from app.permissions.schemas import (
 )
 from app.shared.exceptions import ConflictError, ForbiddenError, NotFoundError
 
+# When a route checks `manage`, any write action satisfies it; write checks also accept `manage`.
+_ACTION_SATISFIES: dict[str, set[str]] = {
+    "read": {"read"},
+    "create": {"create", "manage"},
+    "update": {"update", "edit", "manage"},
+    "edit": {"edit", "update", "manage"},
+    "manage": {"manage", "create", "update", "edit", "delete"},
+    "delete": {"delete", "manage"},
+    "request": {"request", "manage"},
+    "action": {"action", "manage"},
+    "settings": {"settings", "manage", "update", "edit"},
+    "manage_types": {"manage_types", "manage", "create", "update"},
+}
+
 
 class PermissionService:
     @staticmethod
@@ -188,13 +202,23 @@ class PermissionService:
         context: dict[str, Any] | None = None,
     ) -> bool:
         permissions = await PermissionRepository.get_permissions_for_user(tenant_id, user_id)
+        acceptable = _ACTION_SATISFIES.get(action, {action})
         for perm in permissions:
-            if perm.resource == resource and perm.action == action:
+            if perm.resource == resource and perm.action in acceptable:
                 if perm.conditions and context:
                     if not PermissionService._evaluate_conditions(perm.conditions, context):
                         continue
                 return True
         return False
+
+    @staticmethod
+    async def get_user_scope_node_ids(tenant_id: str, user_id: str) -> list[str]:
+        from app.shared.org_scope import get_visible_org_node_ids
+
+        visible = await get_visible_org_node_ids(tenant_id, user_id)
+        if visible is None:
+            return []
+        return sorted(visible)
 
     @staticmethod
     def _evaluate_conditions(conditions: dict[str, Any], context: dict[str, Any]) -> bool:

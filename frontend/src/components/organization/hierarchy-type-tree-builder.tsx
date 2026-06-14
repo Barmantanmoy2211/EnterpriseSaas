@@ -31,30 +31,28 @@ function newId() {
 }
 
 export function createDefaultTypeTree(): HierarchyTypeNode[] {
-  return [
-    {
-      id: newId(),
-      code: "company",
-      label: "Company",
-      children: [
-        {
-          id: newId(),
-          code: "division",
-          label: "Division",
-          children: [
-            {
-              id: newId(),
-              code: "department",
-              label: "Department",
-              children: [
-                { id: newId(), code: "team", label: "Team", children: [] },
-              ],
-            },
-          ],
-        },
-      ],
-    },
-  ];
+  return [];
+}
+
+/** Reconstruct a type tree from flat API node types (roots → children via allowed_child_types). */
+export function nodeTypesToTree(types: { id: string; code: string; label: string; allowed_child_types: string[]; is_root_allowed: boolean }[]): HierarchyTypeNode[] {
+  const byCode = new Map(types.map((t) => [t.code, t]));
+
+  const build = (code: string, visited: Set<string>): HierarchyTypeNode | null => {
+    if (visited.has(code)) return null;
+    const t = byCode.get(code);
+    if (!t) return null;
+    visited.add(code);
+    const children = t.allowed_child_types
+      .map((c) => build(c, visited))
+      .filter((n): n is HierarchyTypeNode => n !== null);
+    return { id: t.id, code: t.code, label: t.label, children };
+  };
+
+  const roots = types.filter((t) => t.is_root_allowed);
+  return roots
+    .map((r) => build(r.code, new Set()))
+    .filter((n): n is HierarchyTypeNode => n !== null);
 }
 
 export function flattenTreeForPicklist(

@@ -43,8 +43,25 @@ class EmployeeService:
         )
 
     @staticmethod
-    async def list_employees(tenant_id: str, status: str | None = None) -> list[EmployeeResponse]:
+    async def list_employees(
+        tenant_id: str,
+        status: str | None = None,
+        user_id: str | None = None,
+    ) -> list[EmployeeResponse]:
         employees = await EmployeeRepository.list_all(tenant_id, status)
+        if user_id:
+            from app.shared.org_scope import get_visible_org_node_ids, record_in_org_scope
+
+            visible = await get_visible_org_node_ids(tenant_id, user_id)
+            if visible is not None:
+                employees = [
+                    e
+                    for e in employees
+                    if record_in_org_scope(
+                        str(e.org_node_id) if e.org_node_id else None,
+                        visible,
+                    )
+                ]
         return [EmployeeService._response(e) for e in employees]
 
     @staticmethod

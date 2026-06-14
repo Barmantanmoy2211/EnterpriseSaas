@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 
+import { OrgHierarchyPicker } from "@/components/organization/org-hierarchy-picker";
 import { AppSidebar } from "@/components/layout/app-sidebar";
 import { GlobalSearch } from "@/components/layout/global-search";
 import { NotificationBell } from "@/components/layout/notification-bell";
@@ -37,6 +38,7 @@ export function AppShell({ children, title }: { children: React.ReactNode; title
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         <header className="flex h-14 shrink-0 items-center gap-4 border-b bg-card px-4 sm:px-6">
           {title && <h1 className="truncate text-lg font-semibold sm:text-xl">{title}</h1>}
+          <OrgHierarchyPicker className="hidden sm:flex" />
           <div className="ml-auto flex items-center gap-2">
             <GlobalSearch />
             <NotificationBell />

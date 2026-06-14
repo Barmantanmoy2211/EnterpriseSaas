@@ -71,6 +71,7 @@ function TreeNodeRow({
 
   const parentType = nodeTypes.find((t) => t.code === node.node_type);
   const allowedChildren = parentType?.allowed_child_types ?? [];
+  const singleChildType = allowedChildren.length === 1 ? allowedChildren[0] : "";
   const typeLabel = nodeTypes.find((t) => t.code === node.node_type)?.label ?? node.node_type;
 
   const { attributes, listeners, setNodeRef: setDragRef, transform, isDragging } = useDraggable({
@@ -180,33 +181,45 @@ function TreeNodeRow({
           className="mb-2 ml-10 flex flex-wrap items-end gap-2 rounded-lg border bg-muted/40 p-3"
           style={{ marginLeft: `${depth * 16 + 40}px` }}
         >
-          <div>
-            <Label className="text-xs">Name</Label>
-            <Input value={childName} onChange={(e) => setChildName(e.target.value)} className="h-8" />
+          <div className="min-w-[180px] flex-1">
+            <Label className="text-xs">Name (e.g. region, department)</Label>
+            <Input
+              value={childName}
+              onChange={(e) => setChildName(e.target.value)}
+              className="h-8"
+              placeholder="North America"
+            />
           </div>
-          <div>
-            <Label className="text-xs">Type</Label>
-            <select
-              className="flex h-8 rounded-md border border-input bg-background px-2 text-sm"
-              value={childType}
-              onChange={(e) => setChildType(e.target.value)}
-            >
-              <option value="">Select...</option>
-              {allowedChildren.map((code) => {
-                const nt = nodeTypes.find((t) => t.code === code);
-                return (
-                  <option key={code} value={code}>
-                    {nt?.label ?? code}
-                  </option>
-                );
-              })}
-            </select>
-          </div>
+          {allowedChildren.length > 1 && (
+            <div>
+              <Label className="text-xs">Level type</Label>
+              <select
+                className="flex h-8 rounded-md border border-input bg-background px-2 text-sm"
+                value={childType}
+                onChange={(e) => setChildType(e.target.value)}
+              >
+                <option value="">Select...</option>
+                {allowedChildren.map((code) => {
+                  const nt = nodeTypes.find((t) => t.code === code);
+                  return (
+                    <option key={code} value={code}>
+                      {nt?.label ?? code}
+                    </option>
+                  );
+                })}
+              </select>
+            </div>
+          )}
+          {singleChildType && (
+            <p className="text-xs text-muted-foreground">
+              Type: {nodeTypes.find((t) => t.code === singleChildType)?.label ?? singleChildType}
+            </p>
+          )}
           <Button
             size="sm"
-            disabled={!childName || !childType}
+            disabled={!childName || (!childType && !singleChildType)}
             onClick={() => {
-              onAddChild(node, childName, childType);
+              onAddChild(node, childName, childType || singleChildType);
               setAdding(false);
               setChildName("");
               setChildType("");

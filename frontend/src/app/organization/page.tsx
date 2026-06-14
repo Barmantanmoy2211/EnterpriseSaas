@@ -1,13 +1,18 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Building2, Layers, Plus, Sparkles } from "lucide-react";
+import { Building2, Layers, Plus, Save } from "lucide-react";
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
+import {
+  HierarchyTypeTreeBuilder,
+  nodeTypesToTree,
+  treeToNodeTypePayloads,
+  type HierarchyTypeNode,
+} from "@/components/organization/hierarchy-type-tree-builder";
 import { OrgHierarchyTree } from "@/components/organization/org-hierarchy-tree";
 import { AppShell } from "@/components/layout/app-shell";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -26,9 +31,11 @@ export default function OrganizationPage() {
   const canManageTypes = isTenantAdmin || hasPermission("org:manage_types");
 
   const queryClient = useQueryClient();
-  const [tab, setTab] = useState<"hierarchy" | "types">("hierarchy");
+  const [tab, setTab] = useState<"hierarchy" | "types">("types");
   const [rootName, setRootName] = useState("");
   const [rootType, setRootType] = useState("");
+  const [typeTree, setTypeTree] = useState<HierarchyTypeNode[]>([]);
+  const [typeFormError, setTypeFormError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const { data: nodeTypes = [], isLoading: loadingTypes } = useQuery({
@@ -43,20 +50,59 @@ export default function OrganizationPage() {
     enabled: !!accessToken,
   });
 
+  useEffect(() => {
+    if (nodeTypes.length > 0) {
+      setTypeTree(nodeTypesToTree(nodeTypes));
+      if (tree.length > 0) setTab("hierarchy");
+    }
+  }, [nodeTypes, tree.length]);
+
   const refresh = () => {
     queryClient.invalidateQueries({ queryKey: ["org-tree"] });
     queryClient.invalidateQueries({ queryKey: ["org-node-types"] });
   };
 
-  const seedDefaults = useMutation({
-    mutationFn: () => organizationApi.seedDefaults(accessToken),
-    onSuccess: refresh,
-    onError: (e) => setError(e instanceof ApiClientError ? e.message : "Failed to seed defaults"),
+  const saveTypes = useMutation({
+    mutationFn: async () => {
+      const payloads = treeToNodeTypePayloads(typeTree);
+      const existingByCode = new Map(nodeTypes.map((t) => [t.code, t]));
+
+      for (const p of payloads) {
+        const existing = existingByCode.get(p.code);
+        if (existing) {
+          await organizationApi.updateNodeType(accessToken, existing.id, {
+            label: p.label,
+            is_root_allowed: p.is_root_allowed,
+            allowed_child_types: p.allowed_child_types,
+          });
+        } else {
+          await organizationApi.createNodeType(accessToken, {
+            code: p.code,
+            label: p.label,
+            is_root_allowed: p.is_root_allowed,
+            allowed_child_types: p.allowed_child_types,
+            schema: {},
+          });
+        }
+      }
+
+      const payloadCodes = new Set(payloads.map((p) => p.code));
+      for (const t of nodeTypes) {
+        if (!payloadCodes.has(t.code) && tree.length === 0) {
+          await organizationApi.deleteNodeType(accessToken, t.id);
+        }
+      }
+    },
+    onSuccess: () => {
+      setError(null);
+      refresh();
+    },
+    onError: (e) => setError(e instanceof ApiClientError ? e.message : "Failed to save level types"),
   });
 
   const createRoot = useMutation({
-    mutationFn: () =>
-      organizationApi.createNode(accessToken, { node_type: rootType, name: rootName }),
+    mutationFn: (nodeType: string) =>
+      organizationApi.createNode(accessToken, { node_type: nodeType, name: rootName }),
     onSuccess: () => {
       setRootName("");
       refresh();
@@ -103,29 +149,23 @@ export default function OrganizationPage() {
   });
 
   const rootTypes = nodeTypes.filter((t) => t.is_root_allowed);
+  const singleRootType = rootTypes.length === 1 ? rootTypes[0].code : "";
 
   return (
     <AppShell title="Organization">
       <div className="space-y-6">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-          <div>
-            <h2 className="flex items-center gap-2 text-2xl font-bold">
-              <Building2 className="h-7 w-7 text-primary" />
-              Organization Builder
-            </h2>
-            <p className="mt-1 text-muted-foreground">
-              Create your company hierarchy, drag nodes to reorganize, and add children at any level.
-            </p>
-          </div>
-          {canManageTypes && nodeTypes.length === 0 && (
-            <Button onClick={() => seedDefaults.mutate()} disabled={seedDefaults.isPending}>
-              <Sparkles className="mr-2 h-4 w-4" />
-              {seedDefaults.isPending ? "Setting up..." : "Initialize default levels"}
-            </Button>
-          )}
+        <div>
+          <h2 className="flex items-center gap-2 text-2xl font-bold">
+            <Building2 className="h-7 w-7 text-primary" />
+            Organization
+          </h2>
+          <p className="mt-1 text-muted-foreground">
+            First define your hierarchy <strong>level types</strong> (structure). Then in the{" "}
+            <strong>Hierarchy</strong> tab, name each node (regions, offices, teams, etc.).
+          </p>
         </div>
 
-        {!canCreate && (
+        {!canCreate && nodeTypes.length > 0 && (
           <Card className="border-amber-500/30 bg-amber-500/5">
             <CardContent className="py-4 text-sm text-muted-foreground">
               You have read-only access. Contact a Tenant Administrator to edit the hierarchy.
@@ -133,59 +173,83 @@ export default function OrganizationPage() {
           </Card>
         )}
 
-        {nodeTypes.length === 0 && (
-          <Card>
-            <CardHeader>
-              <CardTitle>No hierarchy levels configured</CardTitle>
-              <CardDescription>
-                Administrators must define levels (Company → Division → Department → Team) before
-                building the tree.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="flex flex-wrap gap-3">
-              {canManageTypes && (
-                <Button onClick={() => seedDefaults.mutate()} disabled={seedDefaults.isPending}>
-                  <Sparkles className="mr-2 h-4 w-4" />
-                  Use default template
+        <div className="flex gap-2 border-b pb-2">
+          <Button
+            variant={tab === "types" ? "default" : "ghost"}
+            size="sm"
+            onClick={() => setTab("types")}
+          >
+            <Layers className="mr-1 h-4 w-4" />
+            Level types
+          </Button>
+          <Button
+            variant={tab === "hierarchy" ? "default" : "ghost"}
+            size="sm"
+            onClick={() => setTab("hierarchy")}
+            disabled={nodeTypes.length === 0 && typeTree.length === 0}
+          >
+            Hierarchy
+          </Button>
+        </div>
+
+        {tab === "types" && (
+          <div className="space-y-4">
+            {nodeTypes.length === 0 && typeTree.length === 0 && (
+              <Card className="border-dashed">
+                <CardHeader>
+                  <CardTitle className="text-base">No level types yet</CardTitle>
+                  <CardDescription>
+                    Build your own structure — e.g. Company → Region → Branch → Team. Nothing is
+                    pre-filled; you decide the levels and labels.
+                  </CardDescription>
+                </CardHeader>
+              </Card>
+            )}
+
+            {canManageTypes ? (
+              <>
+                <HierarchyTypeTreeBuilder
+                  tree={typeTree}
+                  onChange={setTypeTree}
+                  formError={typeFormError}
+                  onFormError={setTypeFormError}
+                />
+                <Button
+                  onClick={() => saveTypes.mutate()}
+                  disabled={typeTree.length === 0 || saveTypes.isPending}
+                >
+                  <Save className="mr-2 h-4 w-4" />
+                  {saveTypes.isPending ? "Saving..." : "Save level types"}
                 </Button>
-              )}
-              <Link
-                href="/onboarding"
-                className="inline-flex h-10 items-center justify-center rounded-lg border border-input bg-background px-4 text-sm font-medium hover:bg-accent"
-              >
-                Open setup wizard
-              </Link>
-            </CardContent>
-          </Card>
+              </>
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                You need permission to manage hierarchy level types.
+              </p>
+            )}
+          </div>
         )}
 
-        {nodeTypes.length > 0 && (
+        {tab === "hierarchy" && (
           <>
-            <div className="flex gap-2 border-b pb-2">
-              <Button
-                variant={tab === "hierarchy" ? "default" : "ghost"}
-                size="sm"
-                onClick={() => setTab("hierarchy")}
-              >
-                Hierarchy
-              </Button>
-              <Button
-                variant={tab === "types" ? "default" : "ghost"}
-                size="sm"
-                onClick={() => setTab("types")}
-              >
-                <Layers className="mr-1 h-4 w-4" />
-                Level types
-              </Button>
-            </div>
-
-            {tab === "hierarchy" && (
+            {nodeTypes.length === 0 ? (
+              <Card>
+                <CardContent className="py-8 text-center text-sm text-muted-foreground">
+                  Save level types first, then return here to name your hierarchy nodes.
+                  <div className="mt-4">
+                    <Button variant="outline" size="sm" onClick={() => setTab("types")}>
+                      Go to Level types
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            ) : (
               <div className="grid gap-6 lg:grid-cols-3">
-                {canCreate && (
+                {canCreate && tree.length === 0 && (
                   <Card className="lg:col-span-1">
                     <CardHeader>
-                      <CardTitle className="text-base">Add root node</CardTitle>
-                      <CardDescription>Top-level company or entity</CardDescription>
+                      <CardTitle className="text-base">Create root</CardTitle>
+                      <CardDescription>Name your top-level entity</CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-3">
                       <div>
@@ -193,28 +257,43 @@ export default function OrganizationPage() {
                         <Input
                           value={rootName}
                           onChange={(e) => setRootName(e.target.value)}
-                          placeholder="Acme Corporation"
+                          placeholder="Acme Global"
                         />
                       </div>
-                      <div>
-                        <Label>Type</Label>
-                        <select
-                          className="mt-1 flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
-                          value={rootType}
-                          onChange={(e) => setRootType(e.target.value)}
-                        >
-                          <option value="">Select type...</option>
-                          {rootTypes.map((t) => (
-                            <option key={t.id} value={t.code}>
-                              {t.label}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
+                      {rootTypes.length > 1 ? (
+                        <div>
+                          <Label>Level type</Label>
+                          <select
+                            className="mt-1 flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                            value={rootType}
+                            onChange={(e) => setRootType(e.target.value)}
+                          >
+                            <option value="">Select type...</option>
+                            {rootTypes.map((t) => (
+                              <option key={t.id} value={t.code}>
+                                {t.label}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      ) : (
+                        singleRootType && (
+                          <p className="text-xs text-muted-foreground">
+                            Level: {rootTypes[0]?.label}
+                          </p>
+                        )
+                      )}
                       <Button
                         className="w-full"
-                        disabled={!rootName || !rootType || createRoot.isPending}
-                        onClick={() => createRoot.mutate()}
+                        disabled={
+                          !rootName ||
+                          (!rootType && !singleRootType) ||
+                          createRoot.isPending
+                        }
+                        onClick={() => {
+                          const type = rootType || singleRootType;
+                          if (type) createRoot.mutate(type);
+                        }}
                       >
                         <Plus className="mr-1 h-4 w-4" />
                         Create root
@@ -223,13 +302,13 @@ export default function OrganizationPage() {
                   </Card>
                 )}
 
-                <Card className={canCreate ? "lg:col-span-2" : "lg:col-span-3"}>
+                <Card className={canCreate && tree.length === 0 ? "lg:col-span-2" : "lg:col-span-3"}>
                   <CardHeader>
                     <CardTitle className="text-base">Hierarchy tree</CardTitle>
                     <CardDescription>
                       {loadingTree
                         ? "Loading..."
-                        : `${tree.length} root node(s) · Drag the handle to move nodes`}
+                        : `${tree.length} root node(s) — add children and name each level (region, office, etc.)`}
                     </CardDescription>
                   </CardHeader>
                   <CardContent>
@@ -254,44 +333,6 @@ export default function OrganizationPage() {
                 </Card>
               </div>
             )}
-
-            {tab === "types" && (
-              <Card>
-                <CardHeader>
-                  <CardTitle>Hierarchy levels</CardTitle>
-                  <CardDescription>
-                    Metadata-driven types control what can exist under each level
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    {nodeTypes.map((t) => (
-                      <div key={t.id} className="rounded-lg border p-4">
-                        <div className="flex items-center gap-2">
-                          <span className="font-medium">{t.label}</span>
-                          <Badge variant="outline">{t.code}</Badge>
-                          {t.is_root_allowed && <Badge variant="secondary">Root OK</Badge>}
-                        </div>
-                        <p className="mt-2 text-xs text-muted-foreground">
-                          Children:{" "}
-                          {t.allowed_child_types.length
-                            ? t.allowed_child_types.join(", ")
-                            : "none (leaf level)"}
-                        </p>
-                      </div>
-                    ))}
-                  </div>
-                  {canManageTypes && (
-                    <Link
-                      href="/onboarding"
-                      className="mt-4 inline-flex h-10 items-center justify-center rounded-lg border border-input bg-background px-4 text-sm font-medium hover:bg-accent"
-                    >
-                      Customize levels in setup wizard
-                    </Link>
-                  )}
-                </CardContent>
-              </Card>
-            )}
           </>
         )}
 
@@ -303,6 +344,16 @@ export default function OrganizationPage() {
 
         {(loadingTypes || loadingTree) && nodeTypes.length === 0 && (
           <p className="text-sm text-muted-foreground">Loading organization data...</p>
+        )}
+
+        {nodeTypes.length === 0 && canManageTypes && (
+          <p className="text-sm text-muted-foreground">
+            Or use the{" "}
+            <Link href="/onboarding" className="text-primary underline">
+              setup wizard
+            </Link>{" "}
+            to configure levels during onboarding.
+          </p>
         )}
       </div>
     </AppShell>

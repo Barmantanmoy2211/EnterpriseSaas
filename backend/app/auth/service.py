@@ -119,6 +119,7 @@ class AuthService:
         user_id = str(user.id)
         roles = await PermissionService.get_roles_for_user(tenant_id, user_id)
         permissions = await PermissionService.get_permission_keys_for_user(tenant_id, user_id)
+        scope_node_ids = await PermissionService.get_user_scope_node_ids(tenant_id, user_id)
         role_summaries = [UserRoleSummary(code=r.code, name=r.name) for r in roles]
 
         return UserResponse(
@@ -131,6 +132,7 @@ class AuthService:
             roles=role_summaries,
             permissions=permissions,
             is_tenant_admin=any(r.code == "tenant_admin" for r in roles),
+            scope_node_ids=scope_node_ids,
         )
 
     @staticmethod

@@ -15,6 +15,7 @@ export interface User {
   roles?: UserRole[];
   permissions?: string[];
   is_tenant_admin?: boolean;
+  scope_node_ids?: string[];
 }
 
 export interface TokenResponse {

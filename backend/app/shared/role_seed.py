@@ -3,98 +3,100 @@
 from beanie import PydanticObjectId
 
 from app.permissions.repository import PermissionRepository
+from app.shared.permission_modules import PERMISSION_MODULES
 
-# (resource, action) — use "*" for all actions on that resource
+# Standard write bundle per module for manager-style roles
+_WRITE = ("create", "update", "edit")
+
+
+def _module_perms(resource: str, actions: tuple[str, ...]) -> list[tuple[str, str]]:
+    return [(resource, action) for action in actions]
+
+
 ROLE_TEMPLATES: list[dict] = [
     {
         "code": "hr_manager",
         "name": "HR Manager",
         "description": "Full access to HR modules",
-        "permissions": [
-            ("employee", "*"),
-            ("recruitment", "*"),
-            ("attendance", "*"),
-            ("leave", "*"),
-            ("performance", "*"),
-            ("training", "*"),
-            ("onboarding", "*"),
-            ("exit", "*"),
-            ("notification", "read"),
-            ("search", "read"),
-        ],
+        "permissions": (
+            _module_perms("employee", ("read", *_WRITE))
+            + _module_perms("recruitment", ("read", *_WRITE))
+            + _module_perms("attendance", ("read", *_WRITE))
+            + _module_perms("leave", ("read", "request", *_WRITE))
+            + _module_perms("performance", ("read", *_WRITE))
+            + _module_perms("training", ("read", *_WRITE))
+            + _module_perms("onboarding", ("read", *_WRITE))
+            + _module_perms("exit", ("read", *_WRITE))
+            + _module_perms("notification", ("read",))
+            + _module_perms("search", ("read",))
+        ),
     },
     {
         "code": "operations_manager",
         "name": "Operations Manager",
         "description": "Projects, tasks, calendar, documents, and reports",
-        "permissions": [
-            ("project", "*"),
-            ("task", "*"),
-            ("calendar", "*"),
-            ("document", "*"),
-            ("communication", "*"),
-            ("report", "*"),
-            ("analytics", "read"),
-            ("notification", "read"),
-            ("search", "read"),
-        ],
+        "permissions": (
+            _module_perms("project", ("read", *_WRITE))
+            + _module_perms("task", ("read", *_WRITE))
+            + _module_perms("calendar", ("read", *_WRITE))
+            + _module_perms("document", ("read", *_WRITE))
+            + _module_perms("communication", ("read", *_WRITE))
+            + _module_perms("report", ("read", *_WRITE))
+            + _module_perms("analytics", ("read",))
+            + _module_perms("notification", ("read",))
+            + _module_perms("search", ("read",))
+        ),
     },
     {
         "code": "enterprise_manager",
         "name": "Enterprise Manager",
         "description": "Inventory, finance, procurement, manufacturing, logistics",
-        "permissions": [
-            ("inventory", "*"),
-            ("resource", "*"),
-            ("finance", "*"),
-            ("procurement", "*"),
-            ("manufacturing", "*"),
-            ("logistics", "*"),
-            ("notification", "read"),
-            ("search", "read"),
-        ],
+        "permissions": (
+            _module_perms("inventory", ("read", *_WRITE))
+            + _module_perms("resource", ("read", *_WRITE))
+            + _module_perms("finance", ("read", *_WRITE))
+            + _module_perms("procurement", ("read", *_WRITE))
+            + _module_perms("manufacturing", ("read", *_WRITE))
+            + _module_perms("logistics", ("read", *_WRITE))
+            + _module_perms("notification", ("read",))
+            + _module_perms("search", ("read",))
+        ),
     },
     {
         "code": "manager",
         "name": "Manager",
         "description": "Read access plus approvals and leave requests",
-        "permissions": [
-            ("org", "read"),
-            ("employee", "read"),
-            ("project", "read"),
-            ("task", "read"),
-            ("leave", "read"),
-            ("leave", "request"),
-            ("leave", "manage"),
-            ("attendance", "read"),
-            ("approval", "read"),
-            ("approval", "action"),
-            ("notification", "read"),
-            ("search", "read"),
-            ("calendar", "read"),
-            ("calendar", "manage"),
-        ],
+        "permissions": (
+            _module_perms("org", ("read",))
+            + _module_perms("employee", ("read",))
+            + _module_perms("project", ("read",))
+            + _module_perms("task", ("read",))
+            + _module_perms("leave", ("read", "request", "update"))
+            + _module_perms("attendance", ("read",))
+            + _module_perms("approval", ("read", "action"))
+            + _module_perms("notification", ("read",))
+            + _module_perms("search", ("read",))
+            + _module_perms("calendar", ("read", "update"))
+        ),
     },
     {
         "code": "employee",
         "name": "Employee",
         "description": "Standard employee self-service access",
-        "permissions": [
-            ("org", "read"),
-            ("employee", "read"),
-            ("leave", "read"),
-            ("leave", "request"),
-            ("attendance", "read"),
-            ("attendance", "manage"),
-            ("performance", "read"),
-            ("training", "read"),
-            ("onboarding", "read"),
-            ("task", "read"),
-            ("calendar", "read"),
-            ("notification", "read"),
-            ("search", "read"),
-            ("communication", "read"),
-        ],
+        "permissions": (
+            _module_perms("org", ("read",))
+            + _module_perms("employee", ("read",))
+            + _module_perms("leave", ("read", "request"))
+            + _module_perms("attendance", ("read", "update"))
+            + _module_perms("performance", ("read",))
+            + _module_perms("training", ("read",))
+            + _module_perms("onboarding", ("read",))
+            + _module_perms("task", ("read",))
+            + _module_perms("calendar", ("read",))
+            + _module_perms("notification", ("read",))
+            + _module_perms("search", ("read",))
+            + _module_perms("communication", ("read",))
+        ),
     },
     {
         "code": "viewer",
@@ -112,8 +114,13 @@ def _resolve_permission_ids(
     if spec == "read_only":
         ids: list[PydanticObjectId] = []
         seen: set[PydanticObjectId] = set()
+        for resource, _label in PERMISSION_MODULES:
+            perm_id = perm_index.get((resource, "read"))
+            if perm_id and perm_id not in seen:
+                ids.append(perm_id)
+                seen.add(perm_id)
         for (resource, action), perm_id in perm_index.items():
-            if action in ("read", "request") and perm_id not in seen:
+            if action == "request" and perm_id not in seen:
                 ids.append(perm_id)
                 seen.add(perm_id)
         return ids
@@ -121,16 +128,10 @@ def _resolve_permission_ids(
     ids = []
     seen: set[PydanticObjectId] = set()
     for resource, action in spec:
-        if action == "*":
-            for (r, a), perm_id in perm_index.items():
-                if r == resource and perm_id not in seen:
-                    ids.append(perm_id)
-                    seen.add(perm_id)
-        else:
-            perm_id = perm_index.get((resource, action))
-            if perm_id and perm_id not in seen:
-                ids.append(perm_id)
-                seen.add(perm_id)
+        perm_id = perm_index.get((resource, action))
+        if perm_id and perm_id not in seen:
+            ids.append(perm_id)
+            seen.add(perm_id)
     return ids
 
 

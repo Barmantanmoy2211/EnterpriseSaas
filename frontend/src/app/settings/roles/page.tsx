@@ -1,15 +1,17 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 
 import { AppShell } from "@/components/layout/app-shell";
+import { ModulePermissionMatrix } from "@/components/permissions/module-permission-matrix";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { authApi } from "@/lib/api/auth";
+import { organizationApi, type OrgNode } from "@/lib/api/organization";
 import { permissionsApi } from "@/lib/api/permissions";
 import { useAuthStore } from "@/stores/auth-store";
 
@@ -23,6 +25,18 @@ const ROLE_DESCRIPTIONS: Record<string, string> = {
   viewer: "Read-only access across all modules.",
 };
 
+function flattenOrgNodes(tree: OrgNode[], depth = 0): { id: string; label: string }[] {
+  const items: { id: string; label: string }[] = [];
+  for (const node of tree) {
+    items.push({
+      id: node.id,
+      label: `${"—".repeat(depth)}${depth > 0 ? " " : ""}${node.name}`,
+    });
+    items.push(...flattenOrgNodes(node.children, depth + 1));
+  }
+  return items;
+}
+
 export default function RolesSettingsPage() {
   const accessToken = useAuthStore((s) => s.accessToken);
   const isTenantAdmin = useAuthStore((s) => s.isTenantAdmin);
@@ -34,6 +48,7 @@ export default function RolesSettingsPage() {
   const [selectedPerms, setSelectedPerms] = useState<string[]>([]);
   const [assignUserId, setAssignUserId] = useState("");
   const [assignRoleId, setAssignRoleId] = useState("");
+  const [assignScopeNodeId, setAssignScopeNodeId] = useState("");
 
   const { data: roles = [] } = useQuery({
     queryKey: ["roles"],
@@ -59,6 +74,14 @@ export default function RolesSettingsPage() {
     enabled: !!accessToken && isTenantAdmin,
   });
 
+  const { data: orgTree = [] } = useQuery({
+    queryKey: ["org-tree"],
+    queryFn: () => organizationApi.getTree(accessToken!),
+    enabled: !!accessToken && isTenantAdmin,
+  });
+
+  const orgNodeOptions = useMemo(() => flattenOrgNodes(orgTree), [orgTree]);
+
   const createRole = useMutation({
     mutationFn: () =>
       permissionsApi.createRole(accessToken!, { code, name, permission_ids: selectedPerms }),
@@ -76,11 +99,13 @@ export default function RolesSettingsPage() {
       permissionsApi.createAssignment(accessToken!, {
         user_id: assignUserId,
         role_id: assignRoleId,
+        scope_node_id: assignScopeNodeId || null,
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["role-assignments"] });
       setAssignUserId("");
       setAssignRoleId("");
+      setAssignScopeNodeId("");
     },
   });
 
@@ -88,12 +113,6 @@ export default function RolesSettingsPage() {
     mutationFn: (id: string) => permissionsApi.deleteAssignment(accessToken!, id),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["role-assignments"] }),
   });
-
-  const togglePerm = (permId: string) => {
-    setSelectedPerms((prev) =>
-      prev.includes(permId) ? prev.filter((id) => id !== permId) : [...prev, permId],
-    );
-  };
 
   const userName = (userId: string) => {
     const u = users.find((x) => x.id === userId);
@@ -103,22 +122,30 @@ export default function RolesSettingsPage() {
 
   const roleName = (roleId: string) => roles.find((r) => r.id === roleId)?.name ?? roleId.slice(-6);
 
+  const scopeLabel = (scopeId: string | null) => {
+    if (!scopeId) return "All organization (global)";
+    const node = orgNodeOptions.find((o) => o.id === scopeId);
+    return node?.label.trim() ?? scopeId.slice(-6);
+  };
+
   return (
     <AppShell title="Roles & Permissions">
       <div className="mx-auto max-w-5xl space-y-6">
         <Card className="border-primary/20 bg-primary/5">
           <CardHeader className="pb-2">
-            <CardTitle className="text-base">How admin access works</CardTitle>
+            <CardTitle className="text-base">Hierarchy-scoped access</CardTitle>
           </CardHeader>
-          <CardContent className="text-sm text-muted-foreground space-y-2">
+          <CardContent className="space-y-2 text-sm text-muted-foreground">
             <p>
-              The person who <strong className="text-foreground">registers a new workspace</strong> is
-              automatically assigned the <Badge variant="secondary">Tenant Administrator</Badge> role
-              with full permissions.
+              Assign a user to a role at a specific <strong className="text-foreground">hierarchy node</strong>{" "}
+              to make them an admin for that layer and everything below it. Leave scope empty for
+              tenant-wide access.
             </p>
             <p>
-              To give others access, assign them a role below (e.g. HR Manager, Employee, Viewer).
-              Users need a role assignment to see modules in the sidebar.
+              Permissions use a module matrix: <strong className="text-foreground">Read</strong>,{" "}
+              <strong className="text-foreground">Create</strong>,{" "}
+              <strong className="text-foreground">Update</strong>, and{" "}
+              <strong className="text-foreground">Edit</strong> per module.
             </p>
           </CardContent>
         </Card>
@@ -141,9 +168,7 @@ export default function RolesSettingsPage() {
             <div className="flex items-center justify-between">
               <div>
                 <h2 className="text-xl font-bold">Roles</h2>
-                <p className="text-sm text-muted-foreground">
-                  System roles are created when your workspace is registered
-                </p>
+                <p className="text-sm text-muted-foreground">Module permissions per role</p>
               </div>
               {isTenantAdmin && (
                 <Button onClick={() => setShowForm(!showForm)}>
@@ -156,36 +181,24 @@ export default function RolesSettingsPage() {
               <Card>
                 <CardHeader>
                   <CardTitle>Custom role</CardTitle>
+                  <CardDescription>Pick module permissions using the matrix below</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="grid gap-4 sm:grid-cols-2">
                     <div>
                       <Label>Code</Label>
-                      <Input value={code} onChange={(e) => setCode(e.target.value)} placeholder="custom_role" />
+                      <Input value={code} onChange={(e) => setCode(e.target.value)} placeholder="region_admin" />
                     </div>
                     <div>
                       <Label>Name</Label>
-                      <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Custom Role" />
+                      <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Region Admin" />
                     </div>
                   </div>
-                  <div>
-                    <Label>Permissions</Label>
-                    <div className="mt-2 max-h-48 overflow-y-auto grid gap-2 sm:grid-cols-2">
-                      {permissions.map((perm) => (
-                        <label
-                          key={perm.id}
-                          className="flex cursor-pointer items-center gap-2 rounded-md border p-2 text-sm"
-                        >
-                          <input
-                            type="checkbox"
-                            checked={selectedPerms.includes(perm.id)}
-                            onChange={() => togglePerm(perm.id)}
-                          />
-                          <span>{perm.resource}:{perm.action}</span>
-                        </label>
-                      ))}
-                    </div>
-                  </div>
+                  <ModulePermissionMatrix
+                    permissions={permissions}
+                    selectedIds={selectedPerms}
+                    onChange={setSelectedPerms}
+                  />
                   <Button disabled={!code || !name || createRole.isPending} onClick={() => createRole.mutate()}>
                     Create role
                   </Button>
@@ -221,7 +234,9 @@ export default function RolesSettingsPage() {
           <>
             <div>
               <h2 className="text-xl font-bold">User assignments</h2>
-              <p className="text-sm text-muted-foreground">Map users to roles</p>
+              <p className="text-sm text-muted-foreground">
+                Map users to roles and hierarchy scope (layer admin)
+              </p>
             </div>
 
             {isTenantAdmin && (
@@ -229,7 +244,7 @@ export default function RolesSettingsPage() {
                 <CardHeader>
                   <CardTitle className="text-base">Assign role to user</CardTitle>
                 </CardHeader>
-                <CardContent className="grid gap-4 sm:grid-cols-3">
+                <CardContent className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                   <div>
                     <Label>User</Label>
                     <select
@@ -241,7 +256,6 @@ export default function RolesSettingsPage() {
                       {users.map((u) => (
                         <option key={u.id} value={u.id}>
                           {u.email}
-                          {u.roles?.length ? ` (${u.roles.map((r) => r.name).join(", ")})` : ""}
                         </option>
                       ))}
                     </select>
@@ -257,6 +271,21 @@ export default function RolesSettingsPage() {
                       {roles.map((r) => (
                         <option key={r.id} value={r.id}>
                           {r.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <Label>Hierarchy scope</Label>
+                    <select
+                      className="mt-1 flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                      value={assignScopeNodeId}
+                      onChange={(e) => setAssignScopeNodeId(e.target.value)}
+                    >
+                      <option value="">All organization (global)</option>
+                      {orgNodeOptions.map((o) => (
+                        <option key={o.id} value={o.id}>
+                          {o.label}
                         </option>
                       ))}
                     </select>
@@ -283,7 +312,12 @@ export default function RolesSettingsPage() {
                   <CardContent className="flex items-center justify-between py-4">
                     <div>
                       <p className="font-medium">{userName(a.user_id)}</p>
-                      <p className="text-sm text-muted-foreground">Role: {roleName(a.role_id)}</p>
+                      <p className="text-sm text-muted-foreground">
+                        Role: {roleName(a.role_id)}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        Scope: {scopeLabel(a.scope_node_id)}
+                      </p>
                     </div>
                     {isTenantAdmin && (
                       <Button

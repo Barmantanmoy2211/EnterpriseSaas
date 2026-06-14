@@ -1,70 +1,49 @@
 from beanie import PydanticObjectId
 
 from app.permissions.models import Permission, Role, RoleAssignment
+from app.shared.permission_modules import (
+    PERMISSION_MODULES,
+    SPECIAL_PERMISSIONS,
+    STANDARD_ACTIONS,
+)
 
-SYSTEM_PERMISSIONS = [
-    ("org", "read", "View organization structure"),
-    ("org", "create", "Create organization nodes"),
-    ("org", "update", "Update organization nodes"),
-    ("org", "delete", "Delete organization nodes"),
-    ("org", "manage_types", "Manage organization node types"),
-    ("user", "read", "View users"),
-    ("user", "manage", "Manage users"),
-    ("role", "read", "View roles"),
-    ("role", "manage", "Manage roles and assignments"),
-    ("tenant", "settings", "Manage tenant settings"),
-    ("audit", "read", "View audit logs"),
-    ("notification", "read", "View notifications"),
-    ("notification", "manage", "Send notifications"),
-    ("workflow", "read", "View workflows"),
-    ("workflow", "manage", "Manage workflows and instances"),
-    ("approval", "read", "View all approvals"),
-    ("approval", "action", "Approve or reject requests"),
-    ("search", "read", "Use global search"),
-    ("search", "manage", "Manage search index"),
-    ("employee", "read", "View employees"),
-    ("employee", "manage", "Manage employees"),
-    ("recruitment", "read", "View recruitment data"),
-    ("recruitment", "manage", "Manage jobs, candidates, applications"),
-    ("attendance", "read", "View attendance records"),
-    ("attendance", "manage", "Manage attendance records"),
-    ("leave", "read", "View leave requests and types"),
-    ("leave", "request", "Submit leave requests"),
-    ("leave", "manage", "Manage leave types and requests"),
-    ("performance", "read", "View performance reviews and goals"),
-    ("performance", "manage", "Manage performance reviews and goals"),
-    ("training", "read", "View training courses and enrollments"),
-    ("training", "manage", "Manage training courses and enrollments"),
-    ("onboarding", "read", "View onboarding plans"),
-    ("onboarding", "manage", "Manage onboarding templates and plans"),
-    ("exit", "read", "View exit requests"),
-    ("exit", "manage", "Manage exit and offboarding"),
-    ("project", "read", "View projects"),
-    ("project", "manage", "Manage projects"),
-    ("task", "read", "View tasks"),
-    ("task", "manage", "Manage tasks"),
-    ("calendar", "read", "View calendar events"),
-    ("calendar", "manage", "Manage calendar events"),
-    ("document", "read", "View documents"),
-    ("document", "manage", "Manage documents"),
-    ("communication", "read", "View messages and announcements"),
-    ("communication", "manage", "Send and manage communications"),
-    ("report", "read", "View and run reports"),
-    ("report", "manage", "Manage saved reports"),
-    ("analytics", "read", "View analytics dashboards"),
-    ("inventory", "read", "View inventory items and movements"),
-    ("inventory", "manage", "Manage inventory items and stock movements"),
-    ("resource", "read", "View resources and allocations"),
-    ("resource", "manage", "Manage resources and allocations"),
-    ("finance", "read", "View accounts and journal entries"),
-    ("finance", "manage", "Manage accounts and post journal entries"),
-    ("procurement", "read", "View suppliers and purchase orders"),
-    ("procurement", "manage", "Manage suppliers and purchase orders"),
-    ("manufacturing", "read", "View BOMs and production orders"),
-    ("manufacturing", "manage", "Manage BOMs and production orders"),
-    ("logistics", "read", "View shipments"),
-    ("logistics", "manage", "Manage shipments"),
+SYSTEM_PERMISSIONS: list[tuple[str, str, str]] = []
+for resource, label in PERMISSION_MODULES:
+    for action in STANDARD_ACTIONS:
+        SYSTEM_PERMISSIONS.append((resource, action, f"{action.title()} — {label}"))
+SYSTEM_PERMISSIONS.extend(SPECIAL_PERMISSIONS)
+
+# Legacy manage permissions — kept for backward compatibility with existing route guards
+_LEGACY_MANAGE_MODULES = [
+    "user",
+    "role",
+    "notification",
+    "workflow",
+    "search",
+    "employee",
+    "recruitment",
+    "attendance",
+    "leave",
+    "performance",
+    "training",
+    "onboarding",
+    "exit",
+    "project",
+    "task",
+    "calendar",
+    "document",
+    "communication",
+    "report",
+    "inventory",
+    "resource",
+    "finance",
+    "procurement",
+    "manufacturing",
+    "logistics",
 ]
+for resource in _LEGACY_MANAGE_MODULES:
+    label = next((lbl for code, lbl in PERMISSION_MODULES if code == resource), resource)
+    SYSTEM_PERMISSIONS.append((resource, "manage", f"Full write access — {label}"))
 
 
 class PermissionRepository:
