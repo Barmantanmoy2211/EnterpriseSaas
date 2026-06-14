@@ -1,0 +1,60 @@
+services:
+  mongo:
+    image: mongo:7
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+
+  api:
+    build: ./backend
+    ports:
+      - "8000:8000"
+    environment:
+      MONGODB_URI: mongodb://mongo:27017/enterpriseos
+      REDIS_URL: redis://redis:6379/0
+      JWT_SECRET_KEY: dev-secret-change-in-production
+      JWT_ALGORITHM: HS256
+      ACCESS_TOKEN_EXPIRE_MINUTES: 30
+      REFRESH_TOKEN_EXPIRE_DAYS: 7
+      CORS_ORIGINS: http://localhost:3000
+      ENVIRONMENT: development
+    volumes:
+      - ./backend:/app
+    depends_on:
+      - mongo
+      - redis
+
+  worker:
+    build: ./backend
+    command: celery -A app.core.celery_app worker --loglevel=info
+    environment:
+      MONGODB_URI: mongodb://mongo:27017/enterpriseos
+      REDIS_URL: redis://redis:6379/0
+      JWT_SECRET_KEY: dev-secret-change-in-production
+    volumes:
+      - ./backend:/app
+    depends_on:
+      - mongo
+      - redis
+
+  web:
+    build: ./frontend
+    ports:
+      - "3000:3000"
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:8000
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+      - /app/.next
+    depends_on:
+      - api
+
+volumes:
+  mongo_data:

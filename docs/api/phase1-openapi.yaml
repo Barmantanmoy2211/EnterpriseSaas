@@ -1,0 +1,112 @@
+openapi: 3.1.0
+info:
+  title: EnterpriseOS API
+  version: 1.0.0
+  description: Phase 1 Foundation API
+
+servers:
+  - url: http://localhost:8000/api/v1
+
+paths:
+  /auth/register:
+    post:
+      tags: [auth]
+      summary: Register tenant and admin user
+  /auth/login:
+    post:
+      tags: [auth]
+      summary: Login
+  /auth/refresh:
+    post:
+      tags: [auth]
+      summary: Refresh access token
+  /auth/logout:
+    post:
+      tags: [auth]
+      security: [{ bearerAuth: [] }]
+      summary: Logout
+  /auth/me:
+    get:
+      tags: [auth]
+      security: [{ bearerAuth: [] }]
+      summary: Current user
+  /tenants/me:
+    get:
+      tags: [tenants]
+      security: [{ bearerAuth: [] }]
+    patch:
+      tags: [tenants]
+      security: [{ bearerAuth: [] }]
+  /tenants/me/settings:
+    get:
+      tags: [tenants]
+      security: [{ bearerAuth: [] }]
+    patch:
+      tags: [tenants]
+      security: [{ bearerAuth: [] }]
+  /organization/node-types:
+    get:
+      tags: [organization]
+      security: [{ bearerAuth: [] }]
+    post:
+      tags: [organization]
+      security: [{ bearerAuth: [] }]
+  /organization/node-types/{typeId}:
+    patch:
+      tags: [organization]
+      security: [{ bearerAuth: [] }]
+    delete:
+      tags: [organization]
+      security: [{ bearerAuth: [] }]
+  /organization/nodes/tree:
+    get:
+      tags: [organization]
+      security: [{ bearerAuth: [] }]
+  /organization/nodes:
+    post:
+      tags: [organization]
+      security: [{ bearerAuth: [] }]
+  /organization/nodes/{nodeId}:
+    patch:
+      tags: [organization]
+      security: [{ bearerAuth: [] }]
+    delete:
+      tags: [organization]
+      security: [{ bearerAuth: [] }]
+  /organization/nodes/{nodeId}/move:
+    post:
+      tags: [organization]
+      security: [{ bearerAuth: [] }]
+  /permissions:
+    get:
+      tags: [permissions]
+      security: [{ bearerAuth: [] }]
+  /permissions/roles:
+    get:
+      tags: [permissions]
+      security: [{ bearerAuth: [] }]
+    post:
+      tags: [permissions]
+      security: [{ bearerAuth: [] }]
+  /permissions/roles/{roleId}:
+    patch:
+      tags: [permissions]
+      security: [{ bearerAuth: [] }]
+  /permissions/assignments:
+    get:
+      tags: [permissions]
+      security: [{ bearerAuth: [] }]
+    post:
+      tags: [permissions]
+      security: [{ bearerAuth: [] }]
+  /permissions/assignments/{assignmentId}:
+    delete:
+      tags: [permissions]
+      security: [{ bearerAuth: [] }]
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
