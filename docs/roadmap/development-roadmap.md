@@ -8,7 +8,7 @@ Authentication, multi-tenancy, organization builder, RBAC, dashboard shell.
 
 Workflow, approval, notifications, audit, global search.
 
-## Phase 2 — HR Platform (Current) ✓
+## Phase 2 — HR Platform ✓
 
 - [x] Employee management
 - [x] Recruitment (ATS) — jobs, candidates, applications
@@ -21,11 +21,19 @@ Workflow, approval, notifications, audit, global search.
 - [x] HR frontend pages and sidebar navigation
 - [x] HR permissions and tenant seed data
 
-## Phase 3 — Operations
+## Phase 3 — Operations ✓
 
-Projects, Tasks, Calendar, Documents, Communication, Reports, Analytics
+- [x] Projects — CRUD with org scoping and search indexing
+- [x] Tasks — project-linked task management
+- [x] Calendar — events with attendees
+- [x] Documents — metadata library (file URL placeholder)
+- [x] Communication — announcements and direct messages
+- [x] Reports — saved reports with run/preview
+- [x] Analytics — tenant overview and trends API
+- [x] Operations frontend pages and sidebar navigation
+- [x] Operations permissions and default report seed
 
-## Phase 4 — Enterprise Modules
+## Phase 4 — Enterprise Modules (Current)
 
 Inventory, Resources, Finance, Procurement, Manufacturing, Logistics
 

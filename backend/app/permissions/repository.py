@@ -39,6 +39,19 @@ SYSTEM_PERMISSIONS = [
     ("onboarding", "manage", "Manage onboarding templates and plans"),
     ("exit", "read", "View exit requests"),
     ("exit", "manage", "Manage exit and offboarding"),
+    ("project", "read", "View projects"),
+    ("project", "manage", "Manage projects"),
+    ("task", "read", "View tasks"),
+    ("task", "manage", "Manage tasks"),
+    ("calendar", "read", "View calendar events"),
+    ("calendar", "manage", "Manage calendar events"),
+    ("document", "read", "View documents"),
+    ("document", "manage", "Manage documents"),
+    ("communication", "read", "View messages and announcements"),
+    ("communication", "manage", "Send and manage communications"),
+    ("report", "read", "View and run reports"),
+    ("report", "manage", "Manage saved reports"),
+    ("analytics", "read", "View analytics dashboards"),
 ]
 
 
