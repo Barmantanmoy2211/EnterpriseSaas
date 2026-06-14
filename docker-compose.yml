@@ -5,11 +5,22 @@ services:
       - "27017:27017"
     volumes:
       - mongo_data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
 
   redis:
     image: redis:7-alpine
     ports:
       - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
 
   api:
     build: ./backend
@@ -27,8 +38,11 @@ services:
     volumes:
       - ./backend:/app
     depends_on:
-      - mongo
-      - redis
+      mongo:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
 
   worker:
     build: ./backend
@@ -40,8 +54,11 @@ services:
     volumes:
       - ./backend:/app
     depends_on:
-      - mongo
-      - redis
+      mongo:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
 
   web:
     build: ./frontend
@@ -55,6 +72,7 @@ services:
       - /app/.next
     depends_on:
       - api
+    restart: unless-stopped
 
 volumes:
   mongo_data:

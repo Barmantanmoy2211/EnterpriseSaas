@@ -170,6 +170,16 @@ def create_app() -> FastAPI:
     app.include_router(manufacturing_router, prefix="/api/v1")
     app.include_router(logistics_router, prefix="/api/v1")
 
+    @app.get("/")
+    async def root() -> dict[str, str]:
+        return {
+            "name": "EnterpriseOS API",
+            "status": "ok",
+            "docs": "/docs",
+            "health": "/health",
+            "web_app": "http://localhost:3000",
+        }
+
     @app.get("/health")
     async def health() -> dict[str, str]:
         return {"status": "ok"}
