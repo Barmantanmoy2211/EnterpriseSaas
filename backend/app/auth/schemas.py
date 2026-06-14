@@ -36,6 +36,11 @@ class TokenResponse(BaseModel):
     token_type: str = "bearer"
 
 
+class UserRoleSummary(BaseModel):
+    code: str
+    name: str
+
+
 class UserResponse(BaseModel):
     id: str
     email: str
@@ -43,3 +48,6 @@ class UserResponse(BaseModel):
     last_name: str
     status: str
     tenant_id: str
+    roles: list[UserRoleSummary] = []
+    permissions: list[str] = []
+    is_tenant_admin: bool = False

@@ -1,5 +1,10 @@
 import { api } from "./client";
 
+export interface UserRole {
+  code: string;
+  name: string;
+}
+
 export interface User {
   id: string;
   email: string;
@@ -7,6 +12,9 @@ export interface User {
   last_name: string;
   status: string;
   tenant_id: string;
+  roles?: UserRole[];
+  permissions?: string[];
+  is_tenant_admin?: boolean;
 }
 
 export interface TokenResponse {
@@ -48,4 +56,6 @@ export const authApi = {
     api.post<void>("/api/v1/auth/logout", undefined, { token }),
 
   me: (token: string) => api.get<User>("/api/v1/auth/me", { token }),
+
+  listUsers: (token: string) => api.get<User[]>("/api/v1/auth/users", { token }),
 };

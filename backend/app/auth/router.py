@@ -9,6 +9,7 @@ from app.auth.schemas import (
 )
 from app.auth.service import AuthService
 from app.core.security import get_current_user
+from app.permissions.dependencies import require_permission
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -37,11 +38,13 @@ async def logout(user=Depends(get_current_user)):
 
 @router.get("/me", response_model=UserResponse)
 async def me(user=Depends(get_current_user)):
-    return UserResponse(
-        id=str(user.id),
-        email=user.email,
-        first_name=user.first_name,
-        last_name=user.last_name,
-        status=user.status,
-        tenant_id=str(user.tenant_id),
-    )
+    return await AuthService.build_user_response(user)
+
+
+@router.get("/users", response_model=list[UserResponse])
+async def list_tenant_users(user=Depends(require_permission("user", "read"))):
+    users = await AuthService.list_tenant_users(str(user.tenant_id))
+    results = []
+    for u in users:
+        results.append(await AuthService.build_user_response(u))
+    return results

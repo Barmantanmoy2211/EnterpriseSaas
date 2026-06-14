@@ -44,7 +44,7 @@ class AuthService:
         await PermissionService.seed_tenant_defaults(tenant_id, str(user.id))
 
         tokens = await AuthService._issue_tokens(str(user.id), tenant_id)
-        return tokens, AuthService._user_response(user)
+        return tokens, await AuthService.build_user_response(user)
 
     @staticmethod
     async def login(data: LoginRequest) -> tuple[TokenResponse, UserResponse]:
@@ -72,7 +72,7 @@ class AuthService:
         await AuditService.log_event(
             str(tenant.id), "auth.login", "user", str(user.id), str(user.id)
         )
-        return tokens, AuthService._user_response(user)
+        return tokens, await AuthService.build_user_response(user)
 
     @staticmethod
     async def refresh(refresh_token: str) -> TokenResponse:
@@ -99,12 +99,39 @@ class AuthService:
         await AuthRepository.revoke_all_user_tokens(tenant_id, user_id)
 
     @staticmethod
+    async def list_tenant_users(tenant_id: str) -> list:
+        return await AuthRepository.list_tenant_users(tenant_id)
+
+    @staticmethod
     async def _issue_tokens(user_id: str, tenant_id: str) -> TokenResponse:
         access = create_access_token(user_id, tenant_id)
         refresh = create_refresh_token(user_id, tenant_id)
         expires_at = datetime.now(UTC) + timedelta(days=settings.refresh_token_expire_days)
         await AuthRepository.store_refresh_token(tenant_id, user_id, refresh, expires_at)
         return TokenResponse(access_token=access, refresh_token=refresh)
+
+    @staticmethod
+    async def build_user_response(user) -> UserResponse:
+        from app.auth.schemas import UserRoleSummary
+        from app.permissions.service import PermissionService
+
+        tenant_id = str(user.tenant_id)
+        user_id = str(user.id)
+        roles = await PermissionService.get_roles_for_user(tenant_id, user_id)
+        permissions = await PermissionService.get_permission_keys_for_user(tenant_id, user_id)
+        role_summaries = [UserRoleSummary(code=r.code, name=r.name) for r in roles]
+
+        return UserResponse(
+            id=user_id,
+            email=user.email,
+            first_name=user.first_name,
+            last_name=user.last_name,
+            status=user.status,
+            tenant_id=tenant_id,
+            roles=role_summaries,
+            permissions=permissions,
+            is_tenant_admin=any(r.code == "tenant_admin" for r in roles),
+        )
 
     @staticmethod
     def _user_response(user) -> UserResponse:

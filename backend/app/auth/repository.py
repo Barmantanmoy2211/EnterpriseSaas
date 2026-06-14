@@ -77,6 +77,12 @@ class AuthRepository:
         await record.save()
 
     @staticmethod
+    async def list_tenant_users(tenant_id: str) -> list:
+        return await User.find(
+            {"tenant_id": PydanticObjectId(tenant_id), "is_deleted": False}
+        ).sort("+email").to_list()
+
+    @staticmethod
     async def revoke_all_user_tokens(tenant_id: str, user_id: str) -> None:
         tokens = await RefreshToken.find(
             {

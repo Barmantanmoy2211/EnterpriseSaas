@@ -58,6 +58,10 @@ class PermissionService:
         await seed_ops_defaults(tenant_id, admin_user_id)
         await seed_enterprise_defaults(tenant_id, admin_user_id)
 
+        from app.shared.role_seed import seed_default_roles
+
+        await seed_default_roles(tenant_id)
+
     @staticmethod
     def _perm_response(p: Permission) -> PermissionResponse:
         return PermissionResponse(
@@ -157,6 +161,21 @@ class PermissionService:
         if assignment is None or str(assignment.tenant_id) != tenant_id:
             raise NotFoundError("Assignment not found")
         await PermissionRepository.delete_assignment(assignment)
+
+    @staticmethod
+    async def get_roles_for_user(tenant_id: str, user_id: str) -> list:
+        assignments = await PermissionRepository.list_assignments(tenant_id, user_id)
+        if not assignments:
+            return []
+        role_ids = [a.role_id for a in assignments]
+        from app.permissions.models import Role
+
+        return await Role.find({"_id": {"$in": role_ids}, "is_deleted": False}).to_list()
+
+    @staticmethod
+    async def get_permission_keys_for_user(tenant_id: str, user_id: str) -> list[str]:
+        perms = await PermissionRepository.get_permissions_for_user(tenant_id, user_id)
+        return sorted({f"{p.resource}:{p.action}" for p in perms})
 
     @staticmethod
     async def user_has_permission(
