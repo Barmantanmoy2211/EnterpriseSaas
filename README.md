@@ -75,6 +75,17 @@ EnterpriseSaas/
 - Immutable audit logging
 - Global search across org nodes and users
 
+## Phase 2 Features (HR Platform)
+
+- Employee management with org placement and search indexing
+- Recruitment ATS (jobs, candidates, application pipeline)
+- Attendance check-in/out and daily records
+- Leave types and workflow-integrated leave requests
+- Performance reviews and goals
+- Training courses and enrollments
+- Onboarding templates and employee plans
+- Exit/offboarding requests
+
 ## License
 
 Proprietary — All rights reserved.

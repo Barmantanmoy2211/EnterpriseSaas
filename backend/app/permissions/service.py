@@ -50,6 +50,10 @@ class PermissionService:
                 },
             )
 
+        from app.shared.hr_seed import seed_hr_defaults
+
+        await seed_hr_defaults(tenant_id, admin_user_id)
+
     @staticmethod
     def _perm_response(p: Permission) -> PermissionResponse:
         return PermissionResponse(

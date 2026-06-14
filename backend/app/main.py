@@ -13,11 +13,23 @@ from app.shared.exception_handlers import register_exception_handlers
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     from app.approval.models import ApprovalRequest
+    from app.attendance.models import AttendanceRecord, LeaveRequest, LeaveType
     from app.audit.models import AuditLog
     from app.auth.models import RefreshToken, User
+    from app.employee.models import Employee
     from app.notifications.models import Notification
     from app.organization.models import OrgNode, OrgNodeType
+    from app.performance.models import (
+        ExitRequest,
+        OnboardingPlan,
+        OnboardingTemplate,
+        PerformanceGoal,
+        PerformanceReview,
+        TrainingCourse,
+        TrainingEnrollment,
+    )
     from app.permissions.models import Permission, Role, RoleAssignment
+    from app.recruitment.models import Candidate, JobApplication, JobPosting
     from app.search.models import SearchDocument
     from app.tenant.models import Tenant, TenantSettings
     from app.workflow.models import WorkflowDefinition, WorkflowInstance
@@ -41,6 +53,20 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             WorkflowInstance,
             ApprovalRequest,
             SearchDocument,
+            Employee,
+            JobPosting,
+            Candidate,
+            JobApplication,
+            AttendanceRecord,
+            LeaveType,
+            LeaveRequest,
+            PerformanceReview,
+            PerformanceGoal,
+            TrainingCourse,
+            TrainingEnrollment,
+            OnboardingTemplate,
+            OnboardingPlan,
+            ExitRequest,
         ],
     )
     app.state.mongo_client = client
@@ -51,7 +77,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 def create_app() -> FastAPI:
     app = FastAPI(
         title="EnterpriseOS API",
-        version="1.1.0",
+        version="2.0.0",
         description="Metadata-driven multi-tenant enterprise platform",
         lifespan=lifespan,
     )
@@ -59,11 +85,16 @@ def create_app() -> FastAPI:
     register_exception_handlers(app)
 
     from app.approval.router import router as approval_router
+    from app.attendance.router import leave_router
+    from app.attendance.router import router as attendance_router
     from app.audit.router import router as audit_router
     from app.auth.router import router as auth_router
+    from app.employee.router import router as employee_router
     from app.notifications.router import router as notifications_router
     from app.organization.router import router as org_router
+    from app.performance.router import router as hr_router
     from app.permissions.router import router as permissions_router
+    from app.recruitment.router import router as recruitment_router
     from app.search.router import router as search_router
     from app.tenant.router import router as tenant_router
     from app.workflow.router import router as workflow_router
@@ -77,6 +108,11 @@ def create_app() -> FastAPI:
     app.include_router(workflow_router, prefix="/api/v1")
     app.include_router(approval_router, prefix="/api/v1")
     app.include_router(search_router, prefix="/api/v1")
+    app.include_router(employee_router, prefix="/api/v1")
+    app.include_router(recruitment_router, prefix="/api/v1")
+    app.include_router(attendance_router, prefix="/api/v1")
+    app.include_router(leave_router, prefix="/api/v1")
+    app.include_router(hr_router, prefix="/api/v1")
 
     @app.get("/health")
     async def health() -> dict[str, str]:

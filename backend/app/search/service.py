@@ -72,6 +72,21 @@ class SearchService:
             )
             count += 1
 
+        from app.employee.models import Employee
+
+        employees = await Employee.find({"tenant_id": tenant_oid, "is_deleted": False}).to_list()
+        for emp in employees:
+            name = f"{emp.first_name} {emp.last_name}"
+            await SearchRepository.upsert(
+                tenant_id,
+                "employee",
+                str(emp.id),
+                name,
+                f"{emp.job_title} {emp.department}",
+                [emp.employee_code, emp.email, name],
+            )
+            count += 1
+
         return count
 
     @staticmethod

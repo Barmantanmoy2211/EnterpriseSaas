@@ -22,6 +22,23 @@ SYSTEM_PERMISSIONS = [
     ("approval", "action", "Approve or reject requests"),
     ("search", "read", "Use global search"),
     ("search", "manage", "Manage search index"),
+    ("employee", "read", "View employees"),
+    ("employee", "manage", "Manage employees"),
+    ("recruitment", "read", "View recruitment data"),
+    ("recruitment", "manage", "Manage jobs, candidates, applications"),
+    ("attendance", "read", "View attendance records"),
+    ("attendance", "manage", "Manage attendance records"),
+    ("leave", "read", "View leave requests and types"),
+    ("leave", "request", "Submit leave requests"),
+    ("leave", "manage", "Manage leave types and requests"),
+    ("performance", "read", "View performance reviews and goals"),
+    ("performance", "manage", "Manage performance reviews and goals"),
+    ("training", "read", "View training courses and enrollments"),
+    ("training", "manage", "Manage training courses and enrollments"),
+    ("onboarding", "read", "View onboarding plans"),
+    ("onboarding", "manage", "Manage onboarding templates and plans"),
+    ("exit", "read", "View exit requests"),
+    ("exit", "manage", "Manage exit and offboarding"),
 ]
 
 

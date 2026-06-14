@@ -1,53 +1,38 @@
 # EnterpriseOS Development Roadmap
 
-## Phase 0 — Planning (Lite)
+## Phase 1 — Foundation ✓
 
-- [x] System architecture
-- [x] MongoDB collection design
-- [x] Phase 1 API specification
-- [x] Permission matrix
+Authentication, multi-tenancy, organization builder, RBAC, dashboard shell.
 
-## Phase 1 — Foundation
+## Phase 1b — Platform Services ✓
 
-- [x] Authentication (register, login, refresh, logout)
-- [x] Multi-tenancy with tenant isolation
-- [x] Organization builder (metadata-driven hierarchy)
-- [x] Permission engine (RBAC)
-- [x] Dashboard shell and web UI
+Workflow, approval, notifications, audit, global search.
 
-## Phase 1b — Platform Services (Current)
+## Phase 2 — HR Platform (Current) ✓
 
-- [x] Workflow engine (definitions, instances, step execution)
-- [x] Approval engine (hierarchy-aware, workflow-linked)
-- [x] Notification engine (in-app + Celery email stub)
-- [x] Audit logging (immutable event stream)
-- [x] Global search (MongoDB text index + regex fallback)
-- [x] Frontend: notifications bell, search bar, workflows, approvals, audit pages
-
-## Phase 2 — HR Platform
-
-- Recruitment (ATS)
-- Employee management
-- Attendance, Leave, Performance
-- Training, Onboarding, Exit
+- [x] Employee management
+- [x] Recruitment (ATS) — jobs, candidates, applications
+- [x] Attendance — check-in/out, records
+- [x] Leave — types, requests, workflow integration
+- [x] Performance — reviews and goals
+- [x] Training — courses and enrollments
+- [x] Onboarding — templates and plans
+- [x] Exit — offboarding requests
+- [x] HR frontend pages and sidebar navigation
+- [x] HR permissions and tenant seed data
 
 ## Phase 3 — Operations
 
-- Projects, Tasks, Calendar
-- Documents, Communication
-- Reports, Analytics
+Projects, Tasks, Calendar, Documents, Communication, Reports, Analytics
 
 ## Phase 4 — Enterprise Modules
 
-- Inventory, Resources, Finance
-- Procurement, Manufacturing, Logistics
+Inventory, Resources, Finance, Procurement, Manufacturing, Logistics
 
 ## Phase 5 — AI
 
-- Enterprise search, Chat assistant
-- Predictive analytics, Smart reports, Automation
+Enterprise search, Chat assistant, Predictive analytics
 
 ## Phase 6 — Production
 
-- Security hardening, Performance optimization
-- Monitoring, Logging, CI/CD, AWS deployment
+Security hardening, CI/CD, AWS deployment
