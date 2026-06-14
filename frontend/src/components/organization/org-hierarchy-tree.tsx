@@ -228,6 +228,17 @@ function TreeNodeRow({
           >
             Add child
           </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => {
+              setAdding(false);
+              setChildName("");
+              setChildType("");
+            }}
+          >
+            Cancel
+          </Button>
         </div>
       )}
 

@@ -17,6 +17,8 @@ import { useAuthStore } from "@/stores/auth-store";
 
 const ROLE_DESCRIPTIONS: Record<string, string> = {
   tenant_admin: "Full access — assigned automatically to whoever registers the workspace.",
+  hierarchy_admin:
+    "Assign to a hierarchy node — full module access for that node and everything below it.",
   hr_manager: "Manage employees, recruitment, leave, attendance, and performance.",
   operations_manager: "Projects, tasks, calendar, documents, reports, and analytics.",
   enterprise_manager: "Inventory, finance, procurement, manufacturing, and logistics.",
@@ -137,9 +139,9 @@ export default function RolesSettingsPage() {
           </CardHeader>
           <CardContent className="space-y-2 text-sm text-muted-foreground">
             <p>
-              Assign a user to a role at a specific <strong className="text-foreground">hierarchy node</strong>{" "}
-              to make them an admin for that layer and everything below it. Leave scope empty for
-              tenant-wide access.
+              Use the <Badge variant="secondary">Hierarchy Admin</Badge> role and pick a{" "}
+              <strong className="text-foreground">hierarchy scope</strong> when assigning — that user
+              gets full access to all modules within that node and its children.
             </p>
             <p>
               Permissions use a module matrix: <strong className="text-foreground">Read</strong>,{" "}
@@ -289,6 +291,9 @@ export default function RolesSettingsPage() {
                         </option>
                       ))}
                     </select>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Required for Hierarchy Admin — limits access to this node and below.
+                    </p>
                   </div>
                   <div className="flex items-end">
                     <Button

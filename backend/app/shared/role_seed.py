@@ -13,7 +13,31 @@ def _module_perms(resource: str, actions: tuple[str, ...]) -> list[tuple[str, st
     return [(resource, action) for action in actions]
 
 
+def _hierarchy_admin_perms() -> list[tuple[str, str]]:
+    perms: list[tuple[str, str]] = []
+    for resource, _label in PERMISSION_MODULES:
+        if resource == "tenant":
+            perms.append((resource, "read"))
+            continue
+        perms.extend(_module_perms(resource, ("read", "create", "update", "edit")))
+    perms.extend(
+        [
+            ("org", "delete"),
+            ("org", "manage_types"),
+            ("leave", "request"),
+            ("approval", "action"),
+        ]
+    )
+    return perms
+
+
 ROLE_TEMPLATES: list[dict] = [
+    {
+        "code": "hierarchy_admin",
+        "name": "Hierarchy Admin",
+        "description": "Full module access within assigned hierarchy node and below",
+        "permissions": _hierarchy_admin_perms(),
+    },
     {
         "code": "hr_manager",
         "name": "HR Manager",

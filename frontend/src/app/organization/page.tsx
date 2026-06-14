@@ -3,7 +3,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Building2, Layers, Plus, Save } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import {
   HierarchyTypeTreeBuilder,
@@ -17,9 +17,21 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { organizationApi } from "@/lib/api/organization";
+import { organizationApi, type OrgNode } from "@/lib/api/organization";
 import { ApiClientError } from "@/lib/api/client";
 import { useAuthStore } from "@/stores/auth-store";
+
+function collectUsedNodeTypeCodes(nodes: OrgNode[]): Set<string> {
+  const codes = new Set<string>();
+  const walk = (list: OrgNode[]) => {
+    for (const node of list) {
+      codes.add(node.node_type);
+      walk(node.children);
+    }
+  };
+  walk(nodes);
+  return codes;
+}
 
 export default function OrganizationPage() {
   const accessToken = useAuthStore((s) => s.accessToken)!;
@@ -37,6 +49,7 @@ export default function OrganizationPage() {
   const [typeTree, setTypeTree] = useState<HierarchyTypeNode[]>([]);
   const [typeFormError, setTypeFormError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const typesSyncedRef = useRef(false);
 
   const { data: nodeTypes = [], isLoading: loadingTypes } = useQuery({
     queryKey: ["org-node-types"],
@@ -51,13 +64,15 @@ export default function OrganizationPage() {
   });
 
   useEffect(() => {
-    if (nodeTypes.length > 0) {
+    if (nodeTypes.length > 0 && !typesSyncedRef.current) {
       setTypeTree(nodeTypesToTree(nodeTypes));
+      typesSyncedRef.current = true;
       if (tree.length > 0) setTab("hierarchy");
     }
   }, [nodeTypes, tree.length]);
 
-  const refresh = () => {
+  const refresh = (resyncTypes = false) => {
+    if (resyncTypes) typesSyncedRef.current = false;
     queryClient.invalidateQueries({ queryKey: ["org-tree"] });
     queryClient.invalidateQueries({ queryKey: ["org-node-types"] });
   };
@@ -66,6 +81,7 @@ export default function OrganizationPage() {
     mutationFn: async () => {
       const payloads = treeToNodeTypePayloads(typeTree);
       const existingByCode = new Map(nodeTypes.map((t) => [t.code, t]));
+      const usedInHierarchy = collectUsedNodeTypeCodes(tree);
 
       for (const p of payloads) {
         const existing = existingByCode.get(p.code);
@@ -88,14 +104,14 @@ export default function OrganizationPage() {
 
       const payloadCodes = new Set(payloads.map((p) => p.code));
       for (const t of nodeTypes) {
-        if (!payloadCodes.has(t.code) && tree.length === 0) {
+        if (!payloadCodes.has(t.code) && !usedInHierarchy.has(t.code)) {
           await organizationApi.deleteNodeType(accessToken, t.id);
         }
       }
     },
     onSuccess: () => {
       setError(null);
-      refresh();
+      refresh(true);
     },
     onError: (e) => setError(e instanceof ApiClientError ? e.message : "Failed to save level types"),
   });
@@ -125,26 +141,26 @@ export default function OrganizationPage() {
         node_type: type,
         name,
       }),
-    onSuccess: refresh,
+    onSuccess: () => refresh(),
     onError: (e) => setError(e instanceof ApiClientError ? e.message : "Failed to create node"),
   });
 
   const moveNode = useMutation({
     mutationFn: ({ nodeId, parentId }: { nodeId: string; parentId: string | null }) =>
       organizationApi.moveNode(accessToken, nodeId, parentId),
-    onSuccess: refresh,
+    onSuccess: () => refresh(),
     onError: (e) => setError(e instanceof ApiClientError ? e.message : "Cannot move node here"),
   });
 
   const renameNode = useMutation({
     mutationFn: ({ nodeId, name }: { nodeId: string; name: string }) =>
       organizationApi.updateNode(accessToken, nodeId, { name }),
-    onSuccess: refresh,
+    onSuccess: () => refresh(),
   });
 
   const deleteNode = useMutation({
     mutationFn: (nodeId: string) => organizationApi.deleteNode(accessToken, nodeId),
-    onSuccess: refresh,
+    onSuccess: () => refresh(),
     onError: (e) => setError(e instanceof ApiClientError ? e.message : "Cannot delete node"),
   });
 
@@ -221,6 +237,10 @@ export default function OrganizationPage() {
                   <Save className="mr-2 h-4 w-4" />
                   {saveTypes.isPending ? "Saving..." : "Save level types"}
                 </Button>
+                <p className="text-xs text-muted-foreground">
+                  After deleting levels from the tree, click Save to apply changes. Types used by
+                  existing hierarchy nodes cannot be removed until those nodes are deleted.
+                </p>
               </>
             ) : (
               <p className="text-sm text-muted-foreground">

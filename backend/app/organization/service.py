@@ -64,6 +64,11 @@ class OrganizationService:
         nt = await OrganizationRepository.get_node_type(tenant_id, type_id)
         if nt is None:
             raise NotFoundError("Node type not found")
+        in_use = await OrganizationRepository.count_nodes_using_type(tenant_id, nt.code)
+        if in_use > 0:
+            raise ValidationError(
+                f"Cannot delete level type '{nt.code}' — {in_use} hierarchy node(s) still use it"
+            )
         await OrganizationRepository.soft_delete_node_type(nt)
 
     @staticmethod

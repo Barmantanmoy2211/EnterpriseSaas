@@ -195,7 +195,7 @@ function TypeTreePreview({
                   {node.code}
                 </Badge>
               </button>
-              <div className="flex shrink-0 gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
+              <div className="flex shrink-0 gap-0.5">
                 <Button
                   type="button"
                   variant="ghost"
@@ -214,6 +214,7 @@ function TypeTreePreview({
                   variant="ghost"
                   size="icon"
                   className="h-7 w-7"
+                  title="Delete this level and its children"
                   onClick={() => onRemove(node.id)}
                 >
                   <Trash2 className="h-3.5 w-3.5 text-destructive" />
@@ -287,6 +288,7 @@ export function HierarchyTypeTreeBuilder({
   };
 
   const handleRemove = (id: string) => {
+    if (!window.confirm("Delete this level and all its child levels from the tree?")) return;
     onChange(removeFromTree(tree, id));
     if (parentId === id) setParentId(null);
   };

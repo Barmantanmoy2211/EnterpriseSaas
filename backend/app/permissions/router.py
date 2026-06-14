@@ -22,6 +22,9 @@ async def list_permissions(user=Depends(get_current_user)):
 
 @router.get("/roles", response_model=list[RoleResponse])
 async def list_roles(user=Depends(get_current_user)):
+    from app.shared.role_seed import seed_default_roles
+
+    await seed_default_roles(str(user.tenant_id))
     return await PermissionService.list_roles(str(user.tenant_id))
 
 

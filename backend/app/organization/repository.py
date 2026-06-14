@@ -54,6 +54,16 @@ class OrganizationRepository:
         await node_type.soft_delete()
 
     @staticmethod
+    async def count_nodes_using_type(tenant_id: str, type_code: str) -> int:
+        return await OrgNode.find(
+            {
+                "tenant_id": PydanticObjectId(tenant_id),
+                "node_type": type_code,
+                "is_deleted": False,
+            }
+        ).count()
+
+    @staticmethod
     async def get_node(tenant_id: str, node_id: str) -> OrgNode | None:
         node = await OrgNode.get(node_id)
         if node and str(node.tenant_id) == tenant_id and not node.is_deleted:
