@@ -1,166 +1,105 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ChevronDown, ChevronRight, Plus, Trash2 } from "lucide-react";
+import { Building2, Layers, Plus, Sparkles } from "lucide-react";
+import Link from "next/link";
 import { useState } from "react";
 
+import { OrgHierarchyTree } from "@/components/organization/org-hierarchy-tree";
 import { AppShell } from "@/components/layout/app-shell";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import type { OrgNode, OrgNodeType } from "@/lib/api/organization";
 import { organizationApi } from "@/lib/api/organization";
+import { ApiClientError } from "@/lib/api/client";
 import { useAuthStore } from "@/stores/auth-store";
 
-function OrgTreeNode({
-  node,
-  nodeTypes,
-  token,
-  onRefresh,
-}: {
-  node: OrgNode;
-  nodeTypes: OrgNodeType[];
-  token: string;
-  onRefresh: () => void;
-}) {
-  const [expanded, setExpanded] = useState(true);
-  const [adding, setAdding] = useState(false);
-  const [childName, setChildName] = useState("");
-  const [childType, setChildType] = useState("");
-
-  const parentType = nodeTypes.find((t) => t.code === node.node_type);
-  const allowedChildren = parentType?.allowed_child_types ?? [];
-
-  const createChild = useMutation({
-    mutationFn: () =>
-      organizationApi.createNode(token, {
-        parent_id: node.id,
-        node_type: childType,
-        name: childName,
-      }),
-    onSuccess: () => {
-      setAdding(false);
-      setChildName("");
-      onRefresh();
-    },
-  });
-
-  const deleteNode = useMutation({
-    mutationFn: () => organizationApi.deleteNode(token, node.id),
-    onSuccess: onRefresh,
-  });
-
-  return (
-    <div className="ml-4 border-l pl-4">
-      <div className="flex items-center gap-2 py-1">
-        <button
-          type="button"
-          onClick={() => setExpanded(!expanded)}
-          className="text-muted-foreground hover:text-foreground"
-        >
-          {node.children.length > 0 ? (
-            expanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />
-          ) : (
-            <span className="inline-block w-4" />
-          )}
-        </button>
-        <span className="font-medium">{node.name}</span>
-        <Badge variant="secondary">{node.node_type}</Badge>
-        {allowedChildren.length > 0 && (
-          <Button variant="ghost" size="sm" onClick={() => setAdding(!adding)}>
-            <Plus className="h-3 w-3" />
-          </Button>
-        )}
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => deleteNode.mutate()}
-          disabled={node.children.length > 0}
-        >
-          <Trash2 className="h-3 w-3 text-destructive" />
-        </Button>
-      </div>
-
-      {adding && (
-        <div className="mb-2 ml-6 flex flex-wrap items-end gap-2 rounded-lg border bg-muted/30 p-3">
-          <div>
-            <Label className="text-xs">Name</Label>
-            <Input value={childName} onChange={(e) => setChildName(e.target.value)} className="h-8" />
-          </div>
-          <div>
-            <Label className="text-xs">Type</Label>
-            <select
-              className="flex h-8 rounded-lg border border-input bg-background px-2 text-sm"
-              value={childType}
-              onChange={(e) => setChildType(e.target.value)}
-            >
-              <option value="">Select...</option>
-              {allowedChildren.map((code) => {
-                const nt = nodeTypes.find((t) => t.code === code);
-                return (
-                  <option key={code} value={code}>
-                    {nt?.label ?? code}
-                  </option>
-                );
-              })}
-            </select>
-          </div>
-          <Button
-            size="sm"
-            disabled={!childName || !childType || createChild.isPending}
-            onClick={() => createChild.mutate()}
-          >
-            Add
-          </Button>
-        </div>
-      )}
-
-      {expanded &&
-        node.children.map((child) => (
-          <OrgTreeNode
-            key={child.id}
-            node={child}
-            nodeTypes={nodeTypes}
-            token={token}
-            onRefresh={onRefresh}
-          />
-        ))}
-    </div>
-  );
-}
-
 export default function OrganizationPage() {
-  const accessToken = useAuthStore((s) => s.accessToken);
+  const accessToken = useAuthStore((s) => s.accessToken)!;
+  const isTenantAdmin = useAuthStore((s) => s.isTenantAdmin);
+  const hasPermission = useAuthStore((s) => s.hasPermission);
+  const canCreate = isTenantAdmin || hasPermission("org:create");
+  const canUpdate = isTenantAdmin || hasPermission("org:update");
+  const canDelete = isTenantAdmin || hasPermission("org:delete");
+  const canManageTypes = isTenantAdmin || hasPermission("org:manage_types");
+
   const queryClient = useQueryClient();
+  const [tab, setTab] = useState<"hierarchy" | "types">("hierarchy");
   const [rootName, setRootName] = useState("");
   const [rootType, setRootType] = useState("");
+  const [error, setError] = useState<string | null>(null);
 
-  const { data: nodeTypes = [] } = useQuery({
+  const { data: nodeTypes = [], isLoading: loadingTypes } = useQuery({
     queryKey: ["org-node-types"],
-    queryFn: () => organizationApi.listNodeTypes(accessToken!),
+    queryFn: () => organizationApi.listNodeTypes(accessToken),
     enabled: !!accessToken,
   });
 
-  const { data: tree = [], isLoading } = useQuery({
+  const { data: tree = [], isLoading: loadingTree } = useQuery({
     queryKey: ["org-tree"],
-    queryFn: () => organizationApi.getTree(accessToken!),
+    queryFn: () => organizationApi.getTree(accessToken),
     enabled: !!accessToken,
   });
 
-  const refresh = () => queryClient.invalidateQueries({ queryKey: ["org-tree"] });
+  const refresh = () => {
+    queryClient.invalidateQueries({ queryKey: ["org-tree"] });
+    queryClient.invalidateQueries({ queryKey: ["org-node-types"] });
+  };
+
+  const seedDefaults = useMutation({
+    mutationFn: () => organizationApi.seedDefaults(accessToken),
+    onSuccess: refresh,
+    onError: (e) => setError(e instanceof ApiClientError ? e.message : "Failed to seed defaults"),
+  });
 
   const createRoot = useMutation({
     mutationFn: () =>
-      organizationApi.createNode(accessToken!, {
-        node_type: rootType,
-        name: rootName,
-      }),
+      organizationApi.createNode(accessToken, { node_type: rootType, name: rootName }),
     onSuccess: () => {
       setRootName("");
       refresh();
     },
+    onError: (e) => setError(e instanceof ApiClientError ? e.message : "Failed to create node"),
+  });
+
+  const createChild = useMutation({
+    mutationFn: ({
+      parentId,
+      name,
+      type,
+    }: {
+      parentId: string | null;
+      name: string;
+      type: string;
+    }) =>
+      organizationApi.createNode(accessToken, {
+        parent_id: parentId ?? undefined,
+        node_type: type,
+        name,
+      }),
+    onSuccess: refresh,
+    onError: (e) => setError(e instanceof ApiClientError ? e.message : "Failed to create node"),
+  });
+
+  const moveNode = useMutation({
+    mutationFn: ({ nodeId, parentId }: { nodeId: string; parentId: string | null }) =>
+      organizationApi.moveNode(accessToken, nodeId, parentId),
+    onSuccess: refresh,
+    onError: (e) => setError(e instanceof ApiClientError ? e.message : "Cannot move node here"),
+  });
+
+  const renameNode = useMutation({
+    mutationFn: ({ nodeId, name }: { nodeId: string; name: string }) =>
+      organizationApi.updateNode(accessToken, nodeId, { name }),
+    onSuccess: refresh,
+  });
+
+  const deleteNode = useMutation({
+    mutationFn: (nodeId: string) => organizationApi.deleteNode(accessToken, nodeId),
+    onSuccess: refresh,
+    onError: (e) => setError(e instanceof ApiClientError ? e.message : "Cannot delete node"),
   });
 
   const rootTypes = nodeTypes.filter((t) => t.is_root_allowed);
@@ -168,81 +107,203 @@ export default function OrganizationPage() {
   return (
     <AppShell title="Organization">
       <div className="space-y-6">
-        <div>
-          <h2 className="text-2xl font-bold">Organization Builder</h2>
-          <p className="text-muted-foreground">
-            Build your unlimited-depth hierarchy. Node types are defined by your tenant metadata.
-          </p>
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <h2 className="flex items-center gap-2 text-2xl font-bold">
+              <Building2 className="h-7 w-7 text-primary" />
+              Organization Builder
+            </h2>
+            <p className="mt-1 text-muted-foreground">
+              Create your company hierarchy, drag nodes to reorganize, and add children at any level.
+            </p>
+          </div>
+          {canManageTypes && nodeTypes.length === 0 && (
+            <Button onClick={() => seedDefaults.mutate()} disabled={seedDefaults.isPending}>
+              <Sparkles className="mr-2 h-4 w-4" />
+              {seedDefaults.isPending ? "Setting up..." : "Initialize default levels"}
+            </Button>
+          )}
         </div>
 
-        {nodeTypes.length === 0 && (
-          <Card>
-            <CardHeader>
-              <CardTitle>No node types configured</CardTitle>
-              <CardDescription>
-                Complete onboarding or add node types via the API to start building your hierarchy.
-              </CardDescription>
-            </CardHeader>
-          </Card>
-        )}
-
-        {tree.length === 0 && rootTypes.length > 0 && (
-          <Card>
-            <CardHeader>
-              <CardTitle>Create root node</CardTitle>
-            </CardHeader>
-            <CardContent className="flex flex-wrap items-end gap-3">
-              <div>
-                <Label>Name</Label>
-                <Input value={rootName} onChange={(e) => setRootName(e.target.value)} />
-              </div>
-              <div>
-                <Label>Type</Label>
-                <select
-                  className="flex h-10 rounded-lg border border-input bg-background px-3 text-sm"
-                  value={rootType}
-                  onChange={(e) => setRootType(e.target.value)}
-                >
-                  <option value="">Select...</option>
-                  {rootTypes.map((t) => (
-                    <option key={t.id} value={t.code}>
-                      {t.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <Button
-                disabled={!rootName || !rootType || createRoot.isPending}
-                onClick={() => createRoot.mutate()}
-              >
-                Create
-              </Button>
+        {!canCreate && (
+          <Card className="border-amber-500/30 bg-amber-500/5">
+            <CardContent className="py-4 text-sm text-muted-foreground">
+              You have read-only access. Contact a Tenant Administrator to edit the hierarchy.
             </CardContent>
           </Card>
         )}
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Hierarchy</CardTitle>
-            <CardDescription>
-              {isLoading ? "Loading..." : `${tree.length} root node(s)`}
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {tree.map((node) => (
-              <OrgTreeNode
-                key={node.id}
-                node={node}
-                nodeTypes={nodeTypes}
-                token={accessToken!}
-                onRefresh={refresh}
-              />
-            ))}
-            {tree.length === 0 && !isLoading && nodeTypes.length > 0 && (
-              <p className="text-sm text-muted-foreground">No nodes yet. Create a root node above.</p>
+        {nodeTypes.length === 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle>No hierarchy levels configured</CardTitle>
+              <CardDescription>
+                Administrators must define levels (Company → Division → Department → Team) before
+                building the tree.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="flex flex-wrap gap-3">
+              {canManageTypes && (
+                <Button onClick={() => seedDefaults.mutate()} disabled={seedDefaults.isPending}>
+                  <Sparkles className="mr-2 h-4 w-4" />
+                  Use default template
+                </Button>
+              )}
+              <Link
+                href="/onboarding"
+                className="inline-flex h-10 items-center justify-center rounded-lg border border-input bg-background px-4 text-sm font-medium hover:bg-accent"
+              >
+                Open setup wizard
+              </Link>
+            </CardContent>
+          </Card>
+        )}
+
+        {nodeTypes.length > 0 && (
+          <>
+            <div className="flex gap-2 border-b pb-2">
+              <Button
+                variant={tab === "hierarchy" ? "default" : "ghost"}
+                size="sm"
+                onClick={() => setTab("hierarchy")}
+              >
+                Hierarchy
+              </Button>
+              <Button
+                variant={tab === "types" ? "default" : "ghost"}
+                size="sm"
+                onClick={() => setTab("types")}
+              >
+                <Layers className="mr-1 h-4 w-4" />
+                Level types
+              </Button>
+            </div>
+
+            {tab === "hierarchy" && (
+              <div className="grid gap-6 lg:grid-cols-3">
+                {canCreate && (
+                  <Card className="lg:col-span-1">
+                    <CardHeader>
+                      <CardTitle className="text-base">Add root node</CardTitle>
+                      <CardDescription>Top-level company or entity</CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                      <div>
+                        <Label>Name</Label>
+                        <Input
+                          value={rootName}
+                          onChange={(e) => setRootName(e.target.value)}
+                          placeholder="Acme Corporation"
+                        />
+                      </div>
+                      <div>
+                        <Label>Type</Label>
+                        <select
+                          className="mt-1 flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                          value={rootType}
+                          onChange={(e) => setRootType(e.target.value)}
+                        >
+                          <option value="">Select type...</option>
+                          {rootTypes.map((t) => (
+                            <option key={t.id} value={t.code}>
+                              {t.label}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <Button
+                        className="w-full"
+                        disabled={!rootName || !rootType || createRoot.isPending}
+                        onClick={() => createRoot.mutate()}
+                      >
+                        <Plus className="mr-1 h-4 w-4" />
+                        Create root
+                      </Button>
+                    </CardContent>
+                  </Card>
+                )}
+
+                <Card className={canCreate ? "lg:col-span-2" : "lg:col-span-3"}>
+                  <CardHeader>
+                    <CardTitle className="text-base">Hierarchy tree</CardTitle>
+                    <CardDescription>
+                      {loadingTree
+                        ? "Loading..."
+                        : `${tree.length} root node(s) · Drag the handle to move nodes`}
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <OrgHierarchyTree
+                      tree={tree}
+                      nodeTypes={nodeTypes}
+                      canEdit={canUpdate}
+                      onMove={(nodeId, parentId) => moveNode.mutate({ nodeId, parentId })}
+                      onAddChild={(parent, name, type) =>
+                        createChild.mutate({
+                          parentId: parent?.id ?? null,
+                          name,
+                          type,
+                        })
+                      }
+                      onDelete={(node) => {
+                        if (canDelete) deleteNode.mutate(node.id);
+                      }}
+                      onRename={(node, name) => renameNode.mutate({ nodeId: node.id, name })}
+                    />
+                  </CardContent>
+                </Card>
+              </div>
             )}
-          </CardContent>
-        </Card>
+
+            {tab === "types" && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Hierarchy levels</CardTitle>
+                  <CardDescription>
+                    Metadata-driven types control what can exist under each level
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    {nodeTypes.map((t) => (
+                      <div key={t.id} className="rounded-lg border p-4">
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium">{t.label}</span>
+                          <Badge variant="outline">{t.code}</Badge>
+                          {t.is_root_allowed && <Badge variant="secondary">Root OK</Badge>}
+                        </div>
+                        <p className="mt-2 text-xs text-muted-foreground">
+                          Children:{" "}
+                          {t.allowed_child_types.length
+                            ? t.allowed_child_types.join(", ")
+                            : "none (leaf level)"}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                  {canManageTypes && (
+                    <Link
+                      href="/onboarding"
+                      className="mt-4 inline-flex h-10 items-center justify-center rounded-lg border border-input bg-background px-4 text-sm font-medium hover:bg-accent"
+                    >
+                      Customize levels in setup wizard
+                    </Link>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+          </>
+        )}
+
+        {error && (
+          <p className="text-sm text-destructive" role="alert">
+            {error}
+          </p>
+        )}
+
+        {(loadingTypes || loadingTree) && nodeTypes.length === 0 && (
+          <p className="text-sm text-muted-foreground">Loading organization data...</p>
+        )}
       </div>
     </AppShell>
   );

@@ -51,6 +51,16 @@ async def get_org_tree(user=Depends(get_current_user)):
     return await OrganizationService.get_tree(str(user.tenant_id))
 
 
+@router.post("/seed-defaults", status_code=status.HTTP_201_CREATED)
+async def seed_organization_defaults(
+    user=Depends(require_permission("org", "manage_types")),
+):
+    from app.shared.org_seed import seed_org_defaults
+
+    await seed_org_defaults(str(user.tenant_id))
+    return {"status": "ok", "message": "Default hierarchy levels created"}
+
+
 @router.post("/nodes", response_model=OrgNodeResponse, status_code=status.HTTP_201_CREATED)
 async def create_node(
     data: OrgNodeCreate,

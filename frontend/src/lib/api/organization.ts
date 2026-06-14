@@ -40,6 +40,9 @@ export const organizationApi = {
   getTree: (token: string) =>
     api.get<OrgNode[]>("/api/v1/organization/nodes/tree", { token }),
 
+  seedDefaults: (token: string) =>
+    api.post<{ status: string; message: string }>("/api/v1/organization/seed-defaults", {}, { token }),
+
   createNode: (
     token: string,
     data: {
