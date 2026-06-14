@@ -66,13 +66,16 @@ services:
       - "3000:3000"
     environment:
       NEXT_PUBLIC_API_URL: http://localhost:8000
+    command: sh -c "npm install && npm run dev"
     volumes:
       - ./frontend:/app
-      - /app/node_modules
-      - /app/.next
+      - web_node_modules:/app/node_modules
+      - web_next_cache:/app/.next
     depends_on:
       - api
     restart: unless-stopped
 
 volumes:
   mongo_data:
+  web_node_modules:
+  web_next_cache:
