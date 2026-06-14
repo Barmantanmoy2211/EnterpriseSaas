@@ -4,8 +4,12 @@ WORKDIR /app
 
 RUN apt-get update && apt-get install -y --no-install-recommends gcc && rm -rf /var/lib/apt/lists/*
 
+ENV PIP_DEFAULT_TIMEOUT=120
+ENV PIP_RETRIES=10
+
 COPY pyproject.toml .
-RUN pip install --no-cache-dir -e ".[dev]"
+RUN pip install --upgrade pip && \
+    pip install --no-cache-dir -e .
 
 COPY . .
 
